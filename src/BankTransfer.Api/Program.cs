@@ -1,22 +1,22 @@
+using System.Text;
 using BankTransfer.Api.Auth;
+using BankTransfer.Api.Bootstrap;
 using BankTransfer.Api.Middleware;
 using BankTransfer.Application.Abstractions;
 using BankTransfer.Application.UseCases;
+using BankTransfer.Infrastructure.Auth;
 using BankTransfer.Infrastructure.Persistence;
 using BankTransfer.Infrastructure.Repositories;
-using BankTransfer.Infrastructure.Auth;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using System.Text;
-using BankTransfer.Api.Bootstrap;
-
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<IPasswordHasher, PasswordHasherService>();
 
@@ -82,25 +82,6 @@ builder.Services.AddTransient<ExceptionHandlingMiddleware>();
 
 var app = builder.Build();
 
-// Migrar + Seed simple
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<BankTransferDbContext>();
-    await db.Database.MigrateAsync();
-    
-    //Creamos cuentas de pruebas si no existe
-    if (!db.Accounts.Any())
-    {
-        db.Accounts.AddRange(
-            new BankTransfer.Domain.Entities.Account("Luana", 1000m),
-            new BankTransfer.Domain.Entities.Account("Jose", 500m),
-            new BankTransfer.Domain.Entities.Account("Takashi", 250m)
-        );
-
-        await db.SaveChangesAsync();
-    }
-}
-
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 if (app.Environment.IsDevelopment())
@@ -113,6 +94,29 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-await DbInitializer.SeedAsync(app.Services);// Es para crear datos de prueba en usuarios.
+
+// Migraciones + Seeds al iniciar (ideal para prueba técnica)
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+
+    var db = services.GetRequiredService<BankTransferDbContext>();
+    await db.Database.MigrateAsync();
+
+    // Seed simple de cuentas (si no existe)
+    if (!await db.Accounts.AsNoTracking().AnyAsync())
+    {
+        db.Accounts.AddRange(
+            new BankTransfer.Domain.Entities.Account("Luana", 1000m),
+            new BankTransfer.Domain.Entities.Account("Jose", 500m),
+            new BankTransfer.Domain.Entities.Account("Takashi", 250m)
+        );
+
+        await db.SaveChangesAsync();
+    }
+}
+
+// Es para crear datos de prueba en usuarios.
+await DbInitializer.SeedAsync(app.Services);
 
 app.Run();

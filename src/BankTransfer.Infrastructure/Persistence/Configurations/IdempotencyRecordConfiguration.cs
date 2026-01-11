@@ -9,12 +9,12 @@ public sealed class IdempotencyRecordConfiguration : IEntityTypeConfiguration<Id
     public void Configure(EntityTypeBuilder<IdempotencyRecord> b)
     {
         b.ToTable("idempotency");
-
-        b.HasKey(x => x.Key);
+        
+        b.HasKey(x => new { x.OwnerId, x.Key });
 
         b.Property(x => x.Key)
             .HasMaxLength(100);
-
+        
         b.Property(x => x.RequestHash)
             .IsRequired()
             .HasMaxLength(128);

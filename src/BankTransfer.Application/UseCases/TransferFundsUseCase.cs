@@ -27,11 +27,16 @@ public sealed class TransferFundsUseCase
         _uow = uow;
     }
 
-    public async Task<TransferResponseDto> ExecuteAsync(TransferRequestDto request, string idempotencyKey, CancellationToken ct)
+    public async Task<TransferResponseDto> ExecuteAsync(
+        TransferRequestDto request,
+        string idempotencyKey,
+        CancellationToken ct)
     {
+        var ownerId = request.FromAccountId;
+
         var requestHash = ComputeHash($"{request.FromAccountId}|{request.ToAccountId}|{request.Amount}");
-        
-        var cached = await _idempotency.GetAsync(idempotencyKey, ct);
+
+        var cached = await _idempotency.GetAsync(ownerId, idempotencyKey, ct);
         if (cached is not null)
         {
             if (!string.Equals(cached.RequestHash, requestHash, StringComparison.Ordinal))
@@ -40,7 +45,7 @@ public sealed class TransferFundsUseCase
             return JsonSerializer.Deserialize<TransferResponseDto>(cached.ResponseJson)!
                    ?? throw new InvalidOperationException("Stored idempotency response is invalid.");
         }
-        
+
         var from = await _accounts.GetByIdAsync(request.FromAccountId, ct)
                    ?? throw new AccountNotFoundException(request.FromAccountId);
 
@@ -49,7 +54,7 @@ public sealed class TransferFundsUseCase
 
         from.Debit(request.Amount);
         to.Credit(request.Amount);
-        
+
         var transfer = new Transfer(request.FromAccountId, request.ToAccountId, request.Amount, idempotencyKey);
         await _transfers.AddAsync(transfer, ct);
 
@@ -60,9 +65,9 @@ public sealed class TransferFundsUseCase
 
         var response = new TransferResponseDto(
             transfer.Id, transfer.FromAccountId, transfer.ToAccountId, transfer.Amount, transfer.CreatedAt);
-        
+
         var responseJson = JsonSerializer.Serialize(response);
-        await _idempotency.SaveSuccessAsync(idempotencyKey, requestHash, responseJson, ct);
+        await _idempotency.SaveSuccessAsync(ownerId, idempotencyKey, requestHash, responseJson, ct);
 
         return response;
     }

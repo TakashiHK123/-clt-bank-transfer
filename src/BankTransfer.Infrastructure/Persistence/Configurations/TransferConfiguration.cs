@@ -19,7 +19,7 @@ public sealed class TransferConfiguration : IEntityTypeConfiguration<Transfer>
             .IsRequired()
             .HasMaxLength(100);
 
-        b.HasIndex(x => x.IdempotencyKey)
+        b.HasIndex(x => new { x.FromAccountId, x.IdempotencyKey })
             .IsUnique();
 
     }

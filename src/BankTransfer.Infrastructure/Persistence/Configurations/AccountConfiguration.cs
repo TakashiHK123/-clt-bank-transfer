@@ -12,8 +12,7 @@ public sealed class AccountConfiguration : IEntityTypeConfiguration<Account>
 
         b.HasKey(x => x.Id);
 
-        b.Property(x => x.Name)
-            .IsRequired()
+        b.Property(x => x.Name).IsRequired()
             .HasMaxLength(150);
 
         b.Property(x => x.Balance)

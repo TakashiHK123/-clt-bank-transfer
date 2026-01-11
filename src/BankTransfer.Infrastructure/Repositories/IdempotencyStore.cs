@@ -11,18 +11,19 @@ public sealed class IdempotencyStore : IIdempotencyStore
 
     public IdempotencyStore(BankTransferDbContext db) => _db = db;
 
-    public async Task<IdempotencyResult?> GetAsync(string key, CancellationToken ct)
+    public async Task<IdempotencyResult?> GetAsync(Guid ownerId, string key, CancellationToken ct)
     {
         var record = await _db.IdempotencyRecords.AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Key == key, ct);
+            .FirstOrDefaultAsync(x => x.OwnerId == ownerId && x.Key == key, ct);
 
         return record is null ? null : new IdempotencyResult(record.RequestHash, record.ResponseJson);
     }
 
-    public async Task SaveSuccessAsync(string key, string requestHash, string responseJson, CancellationToken ct)
+    public async Task SaveSuccessAsync(Guid ownerId, string key, string requestHash, string responseJson, CancellationToken ct)
     {
         _db.IdempotencyRecords.Add(new IdempotencyRecord
         {
+            OwnerId = ownerId,
             Key = key,
             RequestHash = requestHash,
             ResponseJson = responseJson

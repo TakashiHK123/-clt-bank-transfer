@@ -2,6 +2,7 @@ namespace BankTransfer.Domain.Entities;
 
 public sealed class IdempotencyRecord
 {
+    public Guid OwnerId { get; set; }       
     public string Key { get; set; } = default!;
     public string RequestHash { get; set; } = default!;
     public string ResponseJson { get; set; } = default!;

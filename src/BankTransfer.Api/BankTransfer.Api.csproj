@@ -20,5 +20,10 @@
     <ProjectReference Include="..\BankTransfer.Application\BankTransfer.Application.csproj" />
     <ProjectReference Include="..\BankTransfer.Infrastructure\BankTransfer.Infrastructure.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="banktransfer.db" CopyToOutputDirectory="Never" />
+    <Content Include="banktransfer.db-wal" CopyToOutputDirectory="Never" />
+    <Content Include="banktransfer.db-shm" CopyToOutputDirectory="Never" />
+  </ItemGroup>
 
 </Project>

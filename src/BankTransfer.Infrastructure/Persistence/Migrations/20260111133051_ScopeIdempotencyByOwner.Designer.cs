@@ -3,6 +3,7 @@ using System;
 using BankTransfer.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BankTransfer.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(BankTransferDbContext))]
-    partial class BankTransferDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260111133051_ScopeIdempotencyByOwner")]
+    partial class ScopeIdempotencyByOwner
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.22");
@@ -93,7 +96,7 @@ namespace BankTransfer.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("FromAccountId", "IdempotencyKey")
+                    b.HasIndex("IdempotencyKey")
                         .IsUnique();
 
                     b.ToTable("transfers", (string)null);
