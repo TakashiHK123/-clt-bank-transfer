@@ -71,7 +71,7 @@ builder.Services.AddDbContext<BankTransferDbContext>(opt =>
     opt.UseSqlite(cs);
 });
 
-// App services
+// Repositories + UoW + UseCases
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<ITransferRepository, TransferRepository>();
 builder.Services.AddScoped<IIdempotencyStore, IdempotencyStore>();
@@ -95,7 +95,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Migraciones + Seeds al iniciar (ideal para prueba técnica)
+// Migraciones + Seed al iniciar (único lugar)
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -103,20 +103,7 @@ using (var scope = app.Services.CreateScope())
     var db = services.GetRequiredService<BankTransferDbContext>();
     await db.Database.MigrateAsync();
 
-    // Seed simple de cuentas (si no existe)
-    if (!await db.Accounts.AsNoTracking().AnyAsync())
-    {
-        db.Accounts.AddRange(
-            new BankTransfer.Domain.Entities.Account("Luana", 1000m),
-            new BankTransfer.Domain.Entities.Account("Jose", 500m),
-            new BankTransfer.Domain.Entities.Account("Takashi", 250m)
-        );
-
-        await db.SaveChangesAsync();
-    }
+    await DbInitializer.SeedAsync(services);
 }
-
-// Es para crear datos de prueba en usuarios.
-await DbInitializer.SeedAsync(app.Services);
 
 app.Run();

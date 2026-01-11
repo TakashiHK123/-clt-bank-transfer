@@ -8,11 +8,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace BankTransfer.Infrastructure.Persistence.Migrations
+namespace BankTransfer.Infrastructure.Migrations
 {
     [DbContext(typeof(BankTransferDbContext))]
-    [Migration("20260111133051_ScopeIdempotencyByOwner")]
-    partial class ScopeIdempotencyByOwner
+    [Migration("20260111201127_ResetSchema")]
+    partial class ResetSchema
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -30,9 +30,16 @@ namespace BankTransfer.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(150)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UserId")
                         .HasColumnType("TEXT");
 
                     b.Property<long>("Version")
@@ -83,6 +90,10 @@ namespace BankTransfer.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("FromAccountId")
                         .HasColumnType("TEXT");
 
@@ -96,7 +107,7 @@ namespace BankTransfer.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("IdempotencyKey")
+                    b.HasIndex("FromAccountId", "IdempotencyKey")
                         .IsUnique();
 
                     b.ToTable("transfers", (string)null);
@@ -106,9 +117,6 @@ namespace BankTransfer.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("AccountId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("PasswordHash")

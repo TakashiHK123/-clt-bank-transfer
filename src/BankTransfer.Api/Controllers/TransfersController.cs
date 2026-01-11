@@ -1,9 +1,9 @@
+using System.Security.Claims;
+using BankTransfer.Application.Abstractions;
 using BankTransfer.Application.DTOs;
 using BankTransfer.Application.UseCases;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
-using BankTransfer.Application.Abstractions;
 
 namespace BankTransfer.Api.Controllers;
 
@@ -13,12 +13,14 @@ namespace BankTransfer.Api.Controllers;
 public sealed class TransfersController : ControllerBase
 {
     private const string IdempotencyHeaderName = "Idempotency-Key";
-    private readonly ITransferRepository _transfers;
-    
 
-    public TransfersController(ITransferRepository transfers)
+    private readonly ITransferRepository _transfers;
+    private readonly IAccountRepository _accounts;
+
+    public TransfersController(ITransferRepository transfers, IAccountRepository accounts)
     {
         _transfers = transfers;
+        _accounts = accounts;
     }
 
     [HttpPost]
@@ -30,52 +32,55 @@ public sealed class TransfersController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(idempotencyKey))
             return BadRequest(new { message = $"{IdempotencyHeaderName} header is required" });
-        
+
         if (!Guid.TryParse(idempotencyKey, out _))
-             return BadRequest(new { message = $"{IdempotencyHeaderName} must be a valid GUID" });
+            return BadRequest(new { message = $"{IdempotencyHeaderName} must be a valid GUID" });
 
-        var accountIdClaim = User.FindFirst("accountId")?.Value;
+        // Ahora el token representa al USER, no a la account
+        var userIdStr =
+            User.FindFirst("userId")?.Value ??
+            User.FindFirst(ClaimTypes.NameIdentifier)?.Value ??
+            User.FindFirst("sub")?.Value;
 
-        if (string.IsNullOrWhiteSpace(accountIdClaim))
-            return Forbid();
+        if (!Guid.TryParse(userIdStr, out var userId))
+            return Unauthorized(new { message = "Token sin userId válido (claim)." });
 
-        if (!Guid.TryParse(accountIdClaim, out var myAccountId))
-            return Forbid(); 
+        // El usecase valida que FromAccountId sea del user (ownership)
+        var result = await useCase.ExecuteAsync(userId, request, idempotencyKey, ct);
 
-        if (request.FromAccountId != myAccountId)
-            return Forbid();
-
-        var result = await useCase.ExecuteAsync(request, idempotencyKey, ct);
-
-        //return CreatedAtAction(nameof(GetById), new { id = result.TransferId }, result);
         return Created($"/api/transfers/{result.TransferId}", result);
     }
-    
-    [HttpGet("me")]
-    public async Task<IActionResult> Transfers(CancellationToken ct)
+
+    // Historial por cuenta (porque un usuario puede tener múltiples cuentas)
+    [HttpGet("by-account/{accountId:guid}")]
+    public async Task<IActionResult> HistoryByAccount(Guid accountId, CancellationToken ct)
     {
-        var accountIdStr =
-            User.FindFirst("accountId")?.Value ??
-            User.FindFirst("AccountId")?.Value ??
-            User.FindFirst("sub")?.Value ??
-            User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-    
-        if (!Guid.TryParse(accountIdStr, out var myAccountId))
-            return Unauthorized(new { message = "Token sin accountId válido (claim)." });
-        
-        var list = await _transfers.GetHistoryByAccountIdAsync(myAccountId, ct);
-        
+        var userIdStr =
+            User.FindFirst("userId")?.Value ??
+            User.FindFirst(ClaimTypes.NameIdentifier)?.Value ??
+            User.FindFirst("sub")?.Value;
+
+        if (!Guid.TryParse(userIdStr, out var userId))
+            return Unauthorized(new { message = "Token sin userId válido (claim)." });
+
+        // ownership check: la cuenta consultada debe ser del user
+        var acc = await _accounts.GetByIdForUserAsync(accountId, userId, ct);
+        if (acc is null)
+            return NotFound(); // (mejor que Forbid para no filtrar existencia de IDs)
+
+        var list = await _transfers.GetHistoryByAccountIdAsync(accountId, ct);
+
         var result = list.Select(t => new
         {
             t.Id,
             t.FromAccountId,
             t.ToAccountId,
             t.Amount,
+            t.Currency,
             t.CreatedAt,
-            direction = t.FromAccountId == myAccountId ? "OUT" : "IN"
+            direction = t.FromAccountId == accountId ? "OUT" : "IN"
         });
-    
-        return Ok(result);
+
+        return Ok(result); 
     }
-    
 }

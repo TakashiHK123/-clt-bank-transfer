@@ -19,7 +19,7 @@ public sealed class IdempotencyStore : IIdempotencyStore
         return record is null ? null : new IdempotencyResult(record.RequestHash, record.ResponseJson);
     }
 
-    public async Task SaveSuccessAsync(Guid ownerId, string key, string requestHash, string responseJson, CancellationToken ct)
+    public Task SaveSuccessAsync(Guid ownerId, string key, string requestHash, string responseJson, CancellationToken ct)
     {
         _db.IdempotencyRecords.Add(new IdempotencyRecord
         {
@@ -29,6 +29,6 @@ public sealed class IdempotencyStore : IIdempotencyStore
             ResponseJson = responseJson
         });
 
-        await _db.SaveChangesAsync(ct);
+        return Task.CompletedTask;
     }
 }

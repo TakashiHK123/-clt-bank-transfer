@@ -28,7 +28,7 @@ public sealed class AuthController : ControllerBase
         if (!_hasher.Verify(req.Password, user.PasswordHash))
             return Unauthorized(new { message = "Invalid credentials" });
 
-        var token = _tokens.CreateToken(user.Id, user.Username, user.AccountId);
+        var token = _tokens.CreateToken(user.Id, user.Username);
         return Ok(new { access_token = token });
     }
 

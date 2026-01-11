@@ -1,6 +1,7 @@
 using BankTransfer.Application.Abstractions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace BankTransfer.Api.Controllers;
 
@@ -10,41 +11,52 @@ namespace BankTransfer.Api.Controllers;
 public sealed class AccountsController : ControllerBase
 {
     private readonly IAccountRepository _accounts;
-    private readonly ITransferRepository _transfers;
-
-    public AccountsController(IAccountRepository accounts, ITransferRepository transfers)
+    public AccountsController(IAccountRepository accounts)
     {
         _accounts = accounts;
-        _transfers = transfers;
+    }
+
+    private bool TryGetUserId(out Guid userId)
+    {
+        var userIdStr =
+            User.FindFirst("userId")?.Value ??
+            User.FindFirst("UserId")?.Value ??
+            User.FindFirst("sub")?.Value ??
+            User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        return Guid.TryParse(userIdStr, out userId);
     }
 
     [HttpGet("{id:guid}")]
-    [AllowAnonymous]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
-        var acc = await _accounts.GetByIdAsync(id, ct);
-        if (acc is null) return NotFound(new { message = "Account not found" });
+        if (!TryGetUserId(out var tokenUserId))
+            return Unauthorized(new { message = "Token sin userId válido (claim sub/NameIdentifier)." });
 
-        return Ok(new { acc.Name, amount = acc.Balance });
+        var acc = await _accounts.GetByIdForUserAsync(id, tokenUserId, ct);
+
+        if (acc is null) return NotFound();
+
+        return Ok(new { acc.Name, amount = acc.Balance, currency = acc.Currency });
     }
     
-    [HttpGet("{id:guid}/transfers")]
-    [AllowAnonymous]
-    public async Task<IActionResult> TransfersByAccountId(Guid id, CancellationToken ct)
+    [HttpGet("me")]
+    public async Task<IActionResult> MyAccounts(CancellationToken ct)
     {
-        var list = await _transfers.GetHistoryByAccountIdAsync(id, ct);
+        if (!TryGetUserId(out var tokenUserId))
+            return Unauthorized(new { message = "Token sin userId válido (claim sub/NameIdentifier)." });
 
-        var result = list.Select(t => new
+        var list = await _accounts.GetByUserIdAsync(tokenUserId, ct);
+
+        var result = list.Select(a => new
         {
-            t.Id,
-            t.FromAccountId,
-            t.ToAccountId,
-            t.Amount,
-            t.CreatedAt,
-            direction = t.FromAccountId == id ? "OUT" : "IN"
+            a.Id,
+            a.Name,
+            amount = a.Balance,
+            currency = a.Currency
         });
 
         return Ok(result);
     }
-    
+
 }

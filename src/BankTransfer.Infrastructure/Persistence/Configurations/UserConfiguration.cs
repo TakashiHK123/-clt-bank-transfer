@@ -22,7 +22,5 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         b.Property(x => x.PasswordHash)
             .IsRequired();
 
-        b.Property(x => x.AccountId)
-            .IsRequired();
     }
 }

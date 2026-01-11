@@ -2,22 +2,20 @@ namespace BankTransfer.Domain.Entities;
 
 public sealed class User
 {
-    public Guid Id { get; private set; } = Guid.NewGuid();
+    public Guid Id { get; private set; }
     public string Username { get; private set; } = default!;
     public string PasswordHash { get; private set; } = default!;
-    
-    public Guid AccountId { get; private set; }
 
     private User() { } 
 
-    public User(string username, string passwordHash, Guid accountId)
+    public User(string username, string passwordHash, Guid id)
     {
-        if (string.IsNullOrWhiteSpace(username)) throw new ArgumentException("Username required.");
-        if (string.IsNullOrWhiteSpace(passwordHash)) throw new ArgumentException("PasswordHash required.");
-        if (accountId == Guid.Empty) throw new ArgumentException("AccountId required.");
+        if (id == Guid.Empty) throw new ArgumentException("Id is required.", nameof(id));
+        if (string.IsNullOrWhiteSpace(username)) throw new ArgumentException("Username is required.", nameof(username));
+        if (string.IsNullOrWhiteSpace(passwordHash)) throw new ArgumentException("PasswordHash is required.", nameof(passwordHash));
 
-        Username = username.Trim().ToLowerInvariant();
+        Id = id;
+        Username = username.Trim();
         PasswordHash = passwordHash;
-        AccountId = accountId;
     }
 }
