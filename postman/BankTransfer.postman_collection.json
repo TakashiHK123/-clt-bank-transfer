@@ -1,0 +1,50 @@
+{
+  "info": {
+    "name": "BankTransfer API",
+    "_postman_id": "d2d2d2d2-d2d2-4d4d-8d8d-111111111111",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth - Get Token",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/api/auth/token", "host": ["{{baseUrl}}"], "path": ["api","auth","token"] },
+        "body": { "mode": "raw", "raw": "{\n  \"username\": \"demo\",\n  \"password\": \"demo\"\n}" }
+      }
+    },
+    {
+      "name": "Accounts - Get By Id",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "{{baseUrl}}/api/accounts/{{accountId}}", "host": ["{{baseUrl}}"], "path": ["api","accounts","{{accountId}}"] }
+      }
+    },
+    {
+      "name": "Transfers - Create (Idempotent)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Idempotency-Key", "value": "{{idempotencyKey}}" }
+        ],
+        "url": { "raw": "{{baseUrl}}/api/transfers", "host": ["{{baseUrl}}"], "path": ["api","transfers"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fromAccountId\": \"{{fromAccountId}}\",\n  \"toAccountId\": \"{{toAccountId}}\",\n  \"amount\": 10\n}"
+        }
+      }
+    },
+    {
+      "name": "Accounts - Transfers History",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "{{baseUrl}}/api/accounts/{{accountId}}/transfers", "host": ["{{baseUrl}}"], "path": ["api","accounts","{{accountId}}","transfers"] }
+      }
+    }
+  ]
+}
