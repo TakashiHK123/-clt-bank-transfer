@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using BankTransfer.Application.Abstractions;
 using BankTransfer.Application.Abstractions.Repositories;
 using BankTransfer.Application.DTOs;
@@ -7,34 +9,30 @@ using BankTransfer.Domain.Exceptions;
 using FluentAssertions;
 using Moq;
 
-namespace BankTransfer.UnitTests.Transfers;
+namespace BankTransfer.UnitTests.ServicesTest;
 
 public sealed class TransferFundsServiceTests
 {
     [Fact]
-    public async Task Test_CuandoHayFondosSuficientes_DebeCrearTransferencia()
+    public async Task ExecuteAsync_CuandoHayFondosSuficientes_DebeCrearTransferencia()
     {
-        // user dueño de la cuenta origen
         var userId = Guid.NewGuid();
 
         var from = new Account(userId, "A", 1000m, "PYG");
-        var to = new Account(Guid.NewGuid(), "B", 100m, "PYG"); // puede ser de otro user
+        var to = new Account(Guid.NewGuid(), "B", 100m, "PYG");
 
         var accounts = new Mock<IAccountRepository>();
 
-        // origen: debe ser del usuario (ownership)
         accounts
             .Setup(x => x.GetByIdForUserAsync(from.Id, userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(from);
 
-        // destino: lookup normal
         accounts
             .Setup(x => x.GetByIdAsync(to.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(to);
 
         var transfers = new Mock<ITransferRepository>();
 
-        // ✅ ownerId ahora es AccountId (cuenta origen)
         var ownerId = from.Id;
 
         var idem = new Mock<IIdempotencyStore>();
@@ -45,9 +43,9 @@ public sealed class TransferFundsServiceTests
         var uow = new Mock<IUnitOfWork>();
         uow.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
-        var useCase = new TransferFundsService(accounts.Object, transfers.Object, idem.Object, uow.Object);
+        var service = new TransferFundsService(accounts.Object, transfers.Object, idem.Object, uow.Object);
 
-        var res = await useCase.ExecuteAsync(
+        var res = await service.ExecuteAsync(
             userId,
             new TransferRequestDto(from.Id, to.Id, 200m),
             "k1",
@@ -57,9 +55,14 @@ public sealed class TransferFundsServiceTests
         from.Balance.Should().Be(800m);
         to.Balance.Should().Be(300m);
 
+        // Se persiste la transferencia
         transfers.Verify(x => x.AddAsync(It.IsAny<Transfer>(), It.IsAny<CancellationToken>()), Times.Once);
 
-        // ✅ SaveSuccessAsync ahora incluye transferId
+        // Se actualizan cuentas
+        accounts.Verify(x => x.Update(from), Times.Once);
+        accounts.Verify(x => x.Update(to), Times.Once);
+
+        // Se guarda idempotencia y commit
         idem.Verify(x => x.SaveSuccessAsync(
                 ownerId,
                 It.IsAny<Guid>(),
@@ -73,7 +76,7 @@ public sealed class TransferFundsServiceTests
     }
 
     [Fact]
-    public async Task Test_De_Fondos_Insuficientes()
+    public async Task ExecuteAsync_CuandoFondosSonInsuficientes_DebeLanzarInsufficientFundsException()
     {
         var userId = Guid.NewGuid();
 
@@ -97,13 +100,13 @@ public sealed class TransferFundsServiceTests
             .Setup(x => x.GetAsync(ownerId, "k1", It.IsAny<CancellationToken>()))
             .ReturnsAsync((IdempotencyResult?)null);
 
-        var useCase = new TransferFundsService(
+        var service = new TransferFundsService(
             accounts.Object,
             Mock.Of<ITransferRepository>(),
             idem.Object,
             Mock.Of<IUnitOfWork>());
 
-        var act = async () => await useCase.ExecuteAsync(
+        var act = async () => await service.ExecuteAsync(
             userId,
             new TransferRequestDto(from.Id, to.Id, 200m),
             "k1",
@@ -113,7 +116,7 @@ public sealed class TransferFundsServiceTests
     }
 
     [Fact]
-    public async Task Test_Misma_Idempotency_No_Duplica_Devuelve_Lo_Mismo_Que_La_Anterior()
+    public async Task ExecuteAsync_CuandoSeRepiteIdempotencyKey_DebeRetornarMismaRespuesta_YNoDuplicar()
     {
         var userId = Guid.NewGuid();
 
@@ -138,7 +141,7 @@ public sealed class TransferFundsServiceTests
         var uow = new Mock<IUnitOfWork>();
         uow.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
-        var useCase = new TransferFundsService(accounts.Object, transfers.Object, idem.Object, uow.Object);
+        var service = new TransferFundsService(accounts.Object, transfers.Object, idem.Object, uow.Object);
 
         var key = "k-retry";
         var req = new TransferRequestDto(from.Id, to.Id, 200m);
@@ -172,16 +175,16 @@ public sealed class TransferFundsServiceTests
                     : new IdempotencyResult(savedHash!, savedResponseJson!);
             });
 
-        var first = await useCase.ExecuteAsync(userId, req, key, CancellationToken.None);
+        var first = await service.ExecuteAsync(userId, req, key, CancellationToken.None);
 
         savedHash.Should().NotBeNull();
         savedResponseJson.Should().NotBeNull();
 
-        var second = await useCase.ExecuteAsync(userId, req, key, CancellationToken.None);
+        var second = await service.ExecuteAsync(userId, req, key, CancellationToken.None);
 
         second.Should().BeEquivalentTo(first);
 
-        // no duplica: solo una ejecución “real”
+        // No duplica ejecución real
         from.Balance.Should().Be(800m);
         to.Balance.Should().Be(300m);
 
@@ -200,7 +203,7 @@ public sealed class TransferFundsServiceTests
     }
 
     [Fact]
-    public async Task Test_Monedas_Distintas_Debe_Fallar()
+    public async Task ExecuteAsync_CuandoMonedasSonDistintas_DebeLanzarCurrencyMismatchException()
     {
         var userId = Guid.NewGuid();
 
@@ -219,18 +222,177 @@ public sealed class TransferFundsServiceTests
         idem.Setup(x => x.GetAsync(ownerId, "k1", It.IsAny<CancellationToken>()))
             .ReturnsAsync((IdempotencyResult?)null);
 
-        var useCase = new TransferFundsService(
-            accounts.Object,
-            Mock.Of<ITransferRepository>(),
-            idem.Object,
-            Mock.Of<IUnitOfWork>());
+        var transfers = new Mock<ITransferRepository>();
+        var uow = new Mock<IUnitOfWork>();
 
-        var act = async () => await useCase.ExecuteAsync(
+        var service = new TransferFundsService(accounts.Object, transfers.Object, idem.Object, uow.Object);
+
+        var act = async () => await service.ExecuteAsync(
             userId,
             new TransferRequestDto(from.Id, to.Id, 10m),
             "k1",
             CancellationToken.None);
 
         await act.Should().ThrowAsync<CurrencyMismatchException>();
+
+        // En mismatch no se persiste nada
+        transfers.Verify(x => x.AddAsync(It.IsAny<Transfer>(), It.IsAny<CancellationToken>()), Times.Never);
+        idem.Verify(x => x.SaveSuccessAsync(
+            It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        uow.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    // =========================
+    // TESTS QUE FALTABAN
+    // =========================
+
+    [Fact]
+    public async Task ExecuteAsync_CuandoCuentaOrigenNoExisteParaUsuario_DebeLanzarAccountNotFoundException()
+    {
+        var userId = Guid.NewGuid();
+
+        var accounts = new Mock<IAccountRepository>();
+        accounts
+            .Setup(x => x.GetByIdForUserAsync(It.IsAny<Guid>(), userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Account?)null);
+
+        var service = new TransferFundsService(
+            accounts.Object,
+            Mock.Of<ITransferRepository>(),
+            Mock.Of<IIdempotencyStore>(),
+            Mock.Of<IUnitOfWork>());
+
+        var req = new TransferRequestDto(Guid.NewGuid(), Guid.NewGuid(), 10m);
+
+        var act = async () => await service.ExecuteAsync(userId, req, "k1", CancellationToken.None);
+
+        await act.Should().ThrowAsync<AccountNotFoundException>();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_CuandoCuentaDestinoNoExiste_DebeLanzarAccountNotFoundException()
+    {
+        var userId = Guid.NewGuid();
+
+        var from = new Account(userId, "A", 1000m, "PYG");
+        var toId = Guid.NewGuid();
+
+        var accounts = new Mock<IAccountRepository>();
+        accounts.Setup(x => x.GetByIdForUserAsync(from.Id, userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(from);
+
+        var ownerId = from.Id;
+
+        var idem = new Mock<IIdempotencyStore>();
+        idem.Setup(x => x.GetAsync(ownerId, "k1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IdempotencyResult?)null);
+
+        accounts.Setup(x => x.GetByIdAsync(toId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Account?)null);
+
+        var transfers = new Mock<ITransferRepository>();
+        var uow = new Mock<IUnitOfWork>();
+
+        var service = new TransferFundsService(accounts.Object, transfers.Object, idem.Object, uow.Object);
+
+        var act = async () => await service.ExecuteAsync(
+            userId,
+            new TransferRequestDto(from.Id, toId, 10m),
+            "k1",
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<AccountNotFoundException>();
+
+        transfers.Verify(x => x.AddAsync(It.IsAny<Transfer>(), It.IsAny<CancellationToken>()), Times.Never);
+        uow.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_CuandoHayCacheConHashDistinto_DebeLanzarIdempotencyConflictException_YNoCambiarSaldos()
+    {
+        var userId = Guid.NewGuid();
+
+        var from = new Account(userId, "A", 1000m, "PYG");
+        var to = new Account(Guid.NewGuid(), "B", 100m, "PYG");
+
+        var accounts = new Mock<IAccountRepository>();
+        accounts.Setup(x => x.GetByIdForUserAsync(from.Id, userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(from);
+
+        var ownerId = from.Id;
+
+        var idem = new Mock<IIdempotencyStore>();
+        idem.Setup(x => x.GetAsync(ownerId, "k1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new IdempotencyResult(
+                RequestHash: "HASH-DIFERENTE",
+                ResponseJson: "{}"));
+
+        var transfers = new Mock<ITransferRepository>();
+        var uow = new Mock<IUnitOfWork>();
+
+        var service = new TransferFundsService(accounts.Object, transfers.Object, idem.Object, uow.Object);
+
+        var act = async () => await service.ExecuteAsync(
+            userId,
+            new TransferRequestDto(from.Id, to.Id, 200m),
+            "k1",
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<IdempotencyConflictException>();
+
+        // No toca estado ni persiste nada
+        from.Balance.Should().Be(1000m);
+        to.Balance.Should().Be(100m);
+
+        transfers.Verify(x => x.AddAsync(It.IsAny<Transfer>(), It.IsAny<CancellationToken>()), Times.Never);
+        idem.Verify(x => x.SaveSuccessAsync(
+            It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        uow.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+
+        // Importante: en conflicto ni siquiera debería buscar cuenta destino
+        accounts.Verify(x => x.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_CuandoHayCacheConJsonNull_DebeLanzarInvalidOperationException()
+    {
+        var userId = Guid.NewGuid();
+
+        var from = new Account(userId, "A", 1000m, "PYG");
+        var to = new Account(Guid.NewGuid(), "B", 100m, "PYG");
+
+        var req = new TransferRequestDto(from.Id, to.Id, 200m);
+        var key = "k1";
+        var ownerId = from.Id;
+
+        var hashCorrecto = CalcularHash($"{req.FromAccountId}|{req.ToAccountId}|{req.Amount}");
+
+        var accounts = new Mock<IAccountRepository>();
+        accounts.Setup(x => x.GetByIdForUserAsync(from.Id, userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(from);
+
+        var idem = new Mock<IIdempotencyStore>();
+        idem.Setup(x => x.GetAsync(ownerId, key, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new IdempotencyResult(hashCorrecto, "null")); // Deserialize => null
+
+        var transfers = new Mock<ITransferRepository>();
+        var uow = new Mock<IUnitOfWork>();
+
+        var service = new TransferFundsService(accounts.Object, transfers.Object, idem.Object, uow.Object);
+
+        var act = async () => await service.ExecuteAsync(userId, req, key, CancellationToken.None);
+
+        var ex = await act.Should().ThrowAsync<InvalidOperationException>();
+        ex.Which.Message.Should().Contain("Stored idempotency response is invalid");
+
+        transfers.Verify(x => x.AddAsync(It.IsAny<Transfer>(), It.IsAny<CancellationToken>()), Times.Never);
+        uow.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    private static string CalcularHash(string input)
+    {
+        using var sha = SHA256.Create();
+        var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(input));
+        return Convert.ToHexString(bytes);
     }
 }

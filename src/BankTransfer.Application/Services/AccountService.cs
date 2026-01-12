@@ -1,4 +1,3 @@
-using BankTransfer.Application.Abstractions;
 using BankTransfer.Application.Abstractions.Repositories;
 using BankTransfer.Application.Abstractions.Services;
 using BankTransfer.Application.DTOs;

@@ -1,4 +1,11 @@
 services:
+  tests:
+    image: mcr.microsoft.com/dotnet/sdk:8.0
+    working_dir: /src
+    volumes:
+      - ./:/src
+    command: ["dotnet", "test", "-c", "Release"]
+
   banktransfer-api:
     build: .
     ports:
@@ -9,6 +16,9 @@ services:
       ConnectionStrings__Default: "Data Source=/data/banktransfer.db"
     volumes:
       - banktransfer_data:/data
+    depends_on:
+      tests:
+        condition: service_completed_successfully
 
 volumes:
   banktransfer_data:

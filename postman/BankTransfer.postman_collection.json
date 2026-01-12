@@ -1,50 +1,237 @@
 {
-  "info": {
-    "name": "BankTransfer API",
-    "_postman_id": "d2d2d2d2-d2d2-4d4d-8d8d-111111111111",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-  },
-  "item": [
-    {
-      "name": "Auth - Get Token",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": { "raw": "{{baseUrl}}/api/auth/token", "host": ["{{baseUrl}}"], "path": ["api","auth","token"] },
-        "body": { "mode": "raw", "raw": "{\n  \"username\": \"demo\",\n  \"password\": \"demo\"\n}" }
-      }
-    },
-    {
-      "name": "Accounts - Get By Id",
-      "request": {
-        "method": "GET",
-        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-        "url": { "raw": "{{baseUrl}}/api/accounts/{{accountId}}", "host": ["{{baseUrl}}"], "path": ["api","accounts","{{accountId}}"] }
-      }
-    },
-    {
-      "name": "Transfers - Create (Idempotent)",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "Authorization", "value": "Bearer {{token}}" },
-          { "key": "Idempotency-Key", "value": "{{idempotencyKey}}" }
-        ],
-        "url": { "raw": "{{baseUrl}}/api/transfers", "host": ["{{baseUrl}}"], "path": ["api","transfers"] },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"fromAccountId\": \"{{fromAccountId}}\",\n  \"toAccountId\": \"{{toAccountId}}\",\n  \"amount\": 10\n}"
-        }
-      }
-    },
-    {
-      "name": "Accounts - Transfers History",
-      "request": {
-        "method": "GET",
-        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-        "url": { "raw": "{{baseUrl}}/api/accounts/{{accountId}}/transfers", "host": ["{{baseUrl}}"], "path": ["api","accounts","{{accountId}}","transfers"] }
-      }
-    }
-  ]
+	"info": {
+		"_postman_id": "b59ee65a-2c17-45b9-99d2-ac8f2bd50959",
+		"name": "BankTransfer API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "48109854",
+		"_collection_link": "https://taka-honge-6850703.postman.co/workspace/taka-honge's-Workspace~277d86e6-96ed-4e32-825a-556abf8c7825/collection/48109854-b59ee65a-2c17-45b9-99d2-ac8f2bd50959?action=share&source=collection_link&creator=48109854"
+	},
+	"item": [
+		{
+			"name": "Accounts - Get By Id",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzMzMzMzMzMy0zMzMzLTMzMzMtMzMzMy0zMzMzMzMzMzMzMzMiLCJ1bmlxdWVfbmFtZSI6InRha2FzaGkiLCJ1c2VySWQiOiIzMzMzMzMzMy0zMzMzLTMzMzMtMzMzMy0zMzMzMzMzMzMzMzMiLCJ1c2VybmFtZSI6InRha2FzaGkiLCJuYmYiOjE3NjgyNDk1NjQsImV4cCI6MTc2ODI1MzE2NCwiaXNzIjoiQmFua1RyYW5zZmVyIiwiYXVkIjoiQmFua1RyYW5zZmVyIn0.qpFG6QKCp9rvwho2qXaMJDFjuRkds96mwyVpd4K1u2s",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:5267/api/accounts/{{accountId}}",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5267",
+					"path": [
+						"api",
+						"accounts",
+						"{{accountId}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Accounts List me",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzMzMzMzMzMy0zMzMzLTMzMzMtMzMzMy0zMzMzMzMzMzMzMzMiLCJ1bmlxdWVfbmFtZSI6InRha2FzaGkiLCJ1c2VySWQiOiIzMzMzMzMzMy0zMzMzLTMzMzMtMzMzMy0zMzMzMzMzMzMzMzMiLCJ1c2VybmFtZSI6InRha2FzaGkiLCJuYmYiOjE3NjgyNDk1NjQsImV4cCI6MTc2ODI1MzE2NCwiaXNzIjoiQmFua1RyYW5zZmVyIiwiYXVkIjoiQmFua1RyYW5zZmVyIn0.qpFG6QKCp9rvwho2qXaMJDFjuRkds96mwyVpd4K1u2s",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}"
+					}
+				],
+				"body": {
+					"mode": "file",
+					"file": {}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/accounts/{{accountId}}",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"accounts",
+						"{{accountId}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Auth - Token",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1lIjoiZGVtbyIsImh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vd3MvMjAwOC8wNi9pZGVudGl0eS9jbGFpbXMvcm9sZSI6InVzZXIiLCJleHAiOjE3NjgwNjcyMzQsImlzcyI6IkJhbmtUcmFuc2ZlciIsImF1ZCI6IkJhbmtUcmFuc2ZlciJ9.vKIuq1bg2t7HAZRZ2f0sMqHW5T3gbMdP8cf2RKSwA3g",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"username\": \"takashi\",\n  \"password\": \"takashi123\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost:5267/api/auth/token",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5267",
+					"path": [
+						"api",
+						"auth",
+						"token"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Transfers - Create (Idempotent)",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxNmFjNzkzNi0xYTUyLTRjYjAtYTI5Yy02ZTc3NDkyOWM3OTEiLCJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1lIjoiYWxpY2UiLCJhY2NvdW50SWQiOiIwM2IwM2IzYi0wNzA5LTQyMjgtOWY4MS05Y2U0MTVhMmMwOTAiLCJqdGkiOiI4MDE2YjVhMi05YTY2LTQ0YjQtYmNiMy00Y2U3NTViM2E1YTkiLCJleHAiOjE3NjgwODUzMjEsImlzcyI6IkJhbmtUcmFuc2ZlciIsImF1ZCI6IkJhbmtUcmFuc2ZlciJ9.HMGolTMg_JrYY1zxTYIw24Mp06x5F77iK3BY9pODulI",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}"
+					},
+					{
+						"key": "Idempotency-Key",
+						"value": "{{idempotencyKey}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"fromAccountId\": \"{{fromAccountId}}\",\n  \"toAccountId\": \"{{toAccountId}}\",\n  \"amount\": 50\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/transfers",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"transfers"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Accounts - Transfers History",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzMzMzMzMzMy0zMzMzLTMzMzMtMzMzMy0zMzMzMzMzMzMzMzMiLCJ1bmlxdWVfbmFtZSI6InRha2FzaGkiLCJ1c2VySWQiOiIzMzMzMzMzMy0zMzMzLTMzMzMtMzMzMy0zMzMzMzMzMzMzMzMiLCJ1c2VybmFtZSI6InRha2FzaGkiLCJuYmYiOjE3NjgyNDk1NjQsImV4cCI6MTc2ODI1MzE2NCwiaXNzIjoiQmFua1RyYW5zZmVyIiwiYXVkIjoiQmFua1RyYW5zZmVyIn0.qpFG6QKCp9rvwho2qXaMJDFjuRkds96mwyVpd4K1u2s",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:5267/api/transfers/by-account/{{accountId}}",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5267",
+					"path": [
+						"api",
+						"transfers",
+						"by-account",
+						"{{accountId}}"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "",
+			"type": "default"
+		},
+		{
+			"key": "fromAccountId",
+			"value": "",
+			"type": "default"
+		},
+		{
+			"key": "toAccountId",
+			"value": "",
+			"type": "default"
+		},
+		{
+			"key": "accountId",
+			"value": "",
+			"type": "default"
+		},
+		{
+			"key": "idempotencyKey",
+			"value": "",
+			"type": "default"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "default"
+		}
+	]
 }

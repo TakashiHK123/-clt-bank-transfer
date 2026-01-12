@@ -12,13 +12,11 @@ public sealed class Account
     public string Currency { get; private set; } = "PYG";
     public long Version { get; private set; } = 0;
 
-    private Account() { } // EF
-
-    public Account(Guid userId, string name, decimal initialBalance, string currency = "PYG")
+    public Account(Guid userId, string name, decimal balance, string currency)
     {
         if (userId == Guid.Empty) throw new ArgumentException("UserId is required.", nameof(userId));
         if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Name is required.", nameof(name));
-        if (initialBalance < 0) throw new ArgumentOutOfRangeException(nameof(initialBalance));
+        if (balance < 0) throw new ArgumentOutOfRangeException(nameof(balance));
         if (string.IsNullOrWhiteSpace(currency)) throw new ArgumentException("Currency is required.", nameof(currency));
 
         var cur = currency.Trim();
@@ -27,7 +25,7 @@ public sealed class Account
 
         UserId = userId;
         Name = name.Trim();
-        Balance = initialBalance;
+        Balance = balance;
         Currency = cur.ToUpperInvariant();
     }
 
@@ -47,7 +45,7 @@ public sealed class Account
         Version++;
     }
 
-    public static Account Seed(Guid id, Guid userId, string name, decimal initialBalance, string currency = "PYG")
+    public static Account Seed(Guid id, Guid userId, string name, decimal initialBalance, string currency)
     {
         if (id == Guid.Empty) throw new ArgumentException("Id is required.", nameof(id));
 
