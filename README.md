@@ -76,6 +76,8 @@ EEEEEEEE-EEEE-EEEE-EEEE-EEEEEEEEEEEE	Takashi	50.0	USD
 
 ### ############### Paso 1 ################ ###
 
+### http://localhost:5267/swagger/index.html ###
+
 Generar el token del usuario a registrar.
 
 Body Request: 
