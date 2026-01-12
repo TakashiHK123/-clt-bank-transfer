@@ -1,21 +1,22 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using BankTransfer.Application.Abstractions.Repositories;
 using BankTransfer.Application.Abstractions;
 using BankTransfer.Application.DTOs;
 using BankTransfer.Domain.Entities;
 using BankTransfer.Domain.Exceptions;
 
-namespace BankTransfer.Application.UseCases;
+namespace BankTransfer.Application.Services;
 
-public sealed class TransferFundsUseCase
+public sealed class TransferFundsService
 {
     private readonly IAccountRepository _accounts;
     private readonly ITransferRepository _transfers;
     private readonly IIdempotencyStore _idempotency;
     private readonly IUnitOfWork _uow;
 
-    public TransferFundsUseCase(
+    public TransferFundsService(
         IAccountRepository accounts,
         ITransferRepository transfers,
         IIdempotencyStore idempotency,

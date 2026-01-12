@@ -3,7 +3,9 @@ using BankTransfer.Api.Auth;
 using BankTransfer.Api.Bootstrap;
 using BankTransfer.Api.Middleware;
 using BankTransfer.Application.Abstractions;
-using BankTransfer.Application.UseCases;
+using BankTransfer.Application.Abstractions.Repositories;
+using BankTransfer.Application.Abstractions.Services;
+using BankTransfer.Application.Services;
 using BankTransfer.Infrastructure.Auth;
 using BankTransfer.Infrastructure.Persistence;
 using BankTransfer.Infrastructure.Repositories;
@@ -16,10 +18,21 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddScoped<ITransferService, TransferService>();
 
+// =========================
+// DI - Repositories/Services
+// =========================
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<IPasswordHasher, PasswordHasherService>();
 
+// Application Services
+builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<IAuthService, AuthService>(); 
+
+// =========================
+// Swagger
+// =========================
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "BankTransfer API", Version = "v1" });
@@ -42,8 +55,13 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// =========================
+// JWT
+// =========================
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+
 builder.Services.AddSingleton<TokenService>();
+builder.Services.AddSingleton<ITokenService>(sp => sp.GetRequiredService<TokenService>());
 
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()!;
 builder.Services
@@ -58,26 +76,33 @@ builder.Services
             ValidateIssuerSigningKey = true,
             ValidIssuer = jwt.Issuer,
             ValidAudience = jwt.Audience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SigningKey))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key))
         };
     });
 
 builder.Services.AddAuthorization();
 
+// =========================
 // EF Core SQLite
+// =========================
 builder.Services.AddDbContext<BankTransferDbContext>(opt =>
 {
     var cs = builder.Configuration.GetConnectionString("Default")!;
     opt.UseSqlite(cs);
 });
 
+// =========================
 // Repositories + UoW + UseCases
+// =========================
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<ITransferRepository, TransferRepository>();
 builder.Services.AddScoped<IIdempotencyStore, IdempotencyStore>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-builder.Services.AddScoped<TransferFundsUseCase>();
+builder.Services.AddScoped<TransferFundsService>();
 
+// =========================
+// Middleware
+// =========================
 builder.Services.AddTransient<ExceptionHandlingMiddleware>();
 
 var app = builder.Build();
@@ -95,7 +120,9 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+// =========================
 // Migraciones + Seed al iniciar (único lugar)
+// =========================
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;

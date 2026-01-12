@@ -1,4 +1,4 @@
-using BankTransfer.Application.Abstractions;
+using BankTransfer.Application.Abstractions.Repositories;
 using BankTransfer.Domain.Entities;
 using BankTransfer.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;

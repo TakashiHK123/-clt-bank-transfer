@@ -1,6 +1,7 @@
 using BankTransfer.Application.Abstractions;
+using BankTransfer.Application.Abstractions.Repositories;
 using BankTransfer.Application.DTOs;
-using BankTransfer.Application.UseCases;
+using BankTransfer.Application.Services;
 using BankTransfer.Domain.Entities;
 using BankTransfer.Domain.Exceptions;
 using FluentAssertions;
@@ -8,7 +9,7 @@ using Moq;
 
 namespace BankTransfer.UnitTests.Transfers;
 
-public sealed class TransferFundsUseCaseTests
+public sealed class TransferFundsServiceTests
 {
     [Fact]
     public async Task Test_CuandoHayFondosSuficientes_DebeCrearTransferencia()
@@ -41,7 +42,7 @@ public sealed class TransferFundsUseCaseTests
         var uow = new Mock<IUnitOfWork>();
         uow.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
-        var useCase = new TransferFundsUseCase(accounts.Object, transfers.Object, idem.Object, uow.Object);
+        var useCase = new TransferFundsService(accounts.Object, transfers.Object, idem.Object, uow.Object);
 
         var res = await useCase.ExecuteAsync(
             userId,
@@ -85,7 +86,7 @@ public sealed class TransferFundsUseCaseTests
             .Setup(x => x.GetAsync(userId, "k1", It.IsAny<CancellationToken>()))
             .ReturnsAsync((IdempotencyResult?)null);
 
-        var useCase = new TransferFundsUseCase(
+        var useCase = new TransferFundsService(
             accounts.Object,
             Mock.Of<ITransferRepository>(),
             idem.Object,
@@ -124,7 +125,7 @@ public sealed class TransferFundsUseCaseTests
         var uow = new Mock<IUnitOfWork>();
         uow.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
-        var useCase = new TransferFundsUseCase(accounts.Object, transfers.Object, idem.Object, uow.Object);
+        var useCase = new TransferFundsService(accounts.Object, transfers.Object, idem.Object, uow.Object);
 
         var key = "k-retry";
         var req = new TransferRequestDto(from.Id, to.Id, 200m);
@@ -192,7 +193,7 @@ public sealed class TransferFundsUseCaseTests
         idem.Setup(x => x.GetAsync(userId, "k1", It.IsAny<CancellationToken>()))
             .ReturnsAsync((IdempotencyResult?)null);
 
-        var useCase = new TransferFundsUseCase(
+        var useCase = new TransferFundsService(
             accounts.Object,
             Mock.Of<ITransferRepository>(),
             idem.Object,

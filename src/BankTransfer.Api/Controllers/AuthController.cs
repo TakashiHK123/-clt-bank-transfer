@@ -1,5 +1,5 @@
-using BankTransfer.Application.Abstractions;
-using BankTransfer.Api.Auth;
+using BankTransfer.Application.Abstractions.Services;
+using BankTransfer.Application.DTOs;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BankTransfer.Api.Controllers;
@@ -8,29 +8,18 @@ namespace BankTransfer.Api.Controllers;
 [Route("api/auth")]
 public sealed class AuthController : ControllerBase
 {
-    private readonly IUserRepository _users;
-    private readonly IPasswordHasher _hasher;
-    private readonly TokenService _tokens;
+    private readonly IAuthService _auth;
 
-    public AuthController(IUserRepository users, IPasswordHasher hasher, TokenService tokens)
+    public AuthController(IAuthService auth)
     {
-        _users = users;
-        _hasher = hasher;
-        _tokens = tokens;
+        _auth = auth;
     }
 
     [HttpPost("token")]
-    public async Task<IActionResult> Token([FromBody] LoginRequest req, CancellationToken ct)
+    public async Task<IActionResult> Token([FromBody] LoginRequestDto req, CancellationToken ct)
     {
-        var user = await _users.GetByUsernameAsync(req.Username, ct);
-        if (user is null) return Unauthorized(new { message = "Invalid credentials" });
+        var result = await _auth.LoginAsync(req, ct);
 
-        if (!_hasher.Verify(req.Password, user.PasswordHash))
-            return Unauthorized(new { message = "Invalid credentials" });
-
-        var token = _tokens.CreateToken(user.Id, user.Username);
-        return Ok(new { access_token = token });
+        return Ok(new { access_token = result.AccessToken });
     }
-
-    public sealed record LoginRequest(string Username, string Password);
 }

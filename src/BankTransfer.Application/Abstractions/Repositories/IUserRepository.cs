@@ -1,6 +1,6 @@
 using BankTransfer.Domain.Entities;
 
-namespace BankTransfer.Application.Abstractions;
+namespace BankTransfer.Application.Abstractions.Repositories;
 
 public interface IUserRepository
 {

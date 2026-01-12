@@ -1,41 +1,55 @@
-using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using BankTransfer.Application.Abstractions.Services;
+using Microsoft.IdentityModel.Tokens;
 
 namespace BankTransfer.Api.Auth;
 
-public sealed class TokenService
+public sealed class TokenService : ITokenService
 {
-    private readonly JwtOptions _opt;
-    public TokenService(IOptions<JwtOptions> opt) => _opt = opt.Value;
+    private readonly IConfiguration _config;
+
+    public TokenService(IConfiguration config)
+    {
+        _config = config;
+    }
 
     public string CreateToken(Guid userId, string username)
     {
-        var claims = new[]
+        var key = _config["Jwt:Key"];
+        if (string.IsNullOrWhiteSpace(key))
+            throw new InvalidOperationException("Missing configuration: Jwt:Key");
+
+        var issuer = _config["Jwt:Issuer"];
+        var audience = _config["Jwt:Audience"];
+
+        var expiresMinutesStr = _config["Jwt:ExpiresMinutes"];
+        var expiresMinutes = 60;
+        if (int.TryParse(expiresMinutesStr, out var parsed) && parsed > 0)
+            expiresMinutes = parsed;
+
+        var claims = new List<Claim>
         {
-            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new(JwtRegisteredClaimNames.UniqueName, username),
 
-            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-
-            new Claim(ClaimTypes.Name, username),
-
-            new Claim("userId", userId.ToString()),
-
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            new("userId", userId.ToString()),
+            new("username", username)
         };
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_opt.SigningKey));
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
+        var creds = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
 
-        var jwt = new JwtSecurityToken(
-            issuer: _opt.Issuer,
-            audience: _opt.Audience,
+        var token = new JwtSecurityToken(
+            issuer: issuer,
+            audience: audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(_opt.ExpMinutes),
-            signingCredentials: creds);
+            notBefore: DateTime.UtcNow,
+            expires: DateTime.UtcNow.AddMinutes(expiresMinutes),
+            signingCredentials: creds
+        );
 
-        return new JwtSecurityTokenHandler().WriteToken(jwt);
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }

@@ -2,8 +2,8 @@ namespace BankTransfer.Api.Auth;
 
 public sealed class JwtOptions
 {
-    public string Issuer { get; init; } = default!;
-    public string Audience { get; init; } = default!;
-    public string SigningKey { get; init; } = default!;
-    public int ExpMinutes { get; init; } = 60;
+    public string Key { get; set; } = default!;
+    public string Issuer { get; set; } = default!;
+    public string Audience { get; set; } = default!;
+    public int ExpiresMinutes { get; set; } = 60;
 }
