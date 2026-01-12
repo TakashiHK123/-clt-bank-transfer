@@ -5,6 +5,7 @@ public sealed class User
     public Guid Id { get; private set; }
     public string Username { get; private set; } = default!;
     public string PasswordHash { get; private set; } = default!;
+    public List<Account> Accounts { get; private set; } = new();
 
     private User() { } 
 

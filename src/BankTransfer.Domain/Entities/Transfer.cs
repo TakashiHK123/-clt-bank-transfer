@@ -10,10 +10,13 @@ public sealed class Transfer
     public DateTimeOffset CreatedAt { get; private set; } = DateTimeOffset.UtcNow;
     public string IdempotencyKey { get; private set; } = default!;
 
+    public IdempotencyRecord? IdempotencyRecord { get; private set; }
+
     private Transfer() { } 
 
     public Transfer(Guid fromAccountId, Guid toAccountId, decimal amount, string currency, string idempotencyKey)
     {
+        Id = Guid.NewGuid();
         if (fromAccountId == Guid.Empty) throw new ArgumentException("FromAccountId is required.");
         if (toAccountId == Guid.Empty) throw new ArgumentException("ToAccountId is required.");
         if (fromAccountId == toAccountId) throw new Exceptions.SameAccountTransferException(fromAccountId);
@@ -26,5 +29,6 @@ public sealed class Transfer
         Amount = amount;
         Currency = currency.Trim().ToUpperInvariant();
         IdempotencyKey = idempotencyKey.Trim();
+        CreatedAt = DateTimeOffset.UtcNow;
     }
 }

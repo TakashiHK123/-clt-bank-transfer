@@ -11,8 +11,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BankTransfer.Infrastructure.Migrations
 {
     [DbContext(typeof(BankTransferDbContext))]
-    [Migration("20260111201127_ResetSchema")]
-    partial class ResetSchema
+    [Migration("20260112144340_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -32,6 +32,7 @@ namespace BankTransfer.Infrastructure.Migrations
 
                     b.Property<string>("Currency")
                         .IsRequired()
+                        .HasMaxLength(3)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Name")
@@ -48,33 +49,51 @@ namespace BankTransfer.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("UserId");
+
                     b.ToTable("accounts", (string)null);
                 });
 
             modelBuilder.Entity("BankTransfer.Domain.Entities.IdempotencyRecord", b =>
                 {
-                    b.Property<Guid>("OwnerId")
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Key")
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
+                        .IsRequired()
+                        .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("RequestHash")
                         .IsRequired()
-                        .HasMaxLength(128)
+                        .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("ResponseJson")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.HasKey("OwnerId", "Key");
+                    b.Property<Guid>("TransferId")
+                        .HasColumnType("TEXT");
 
-                    b.ToTable("idempotency", (string)null);
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("TransferId")
+                        .IsUnique();
+
+                    b.HasIndex("AccountId", "Key")
+                        .IsUnique();
+
+                    b.ToTable("idempotency_records", (string)null);
                 });
 
             modelBuilder.Entity("BankTransfer.Domain.Entities.Transfer", b =>
@@ -92,6 +111,7 @@ namespace BankTransfer.Infrastructure.Migrations
 
                     b.Property<string>("Currency")
                         .IsRequired()
+                        .HasMaxLength(3)
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("FromAccountId")
@@ -106,6 +126,8 @@ namespace BankTransfer.Infrastructure.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ToAccountId");
 
                     b.HasIndex("FromAccountId", "IdempotencyKey")
                         .IsUnique();
@@ -134,6 +156,61 @@ namespace BankTransfer.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("users", (string)null);
+                });
+
+            modelBuilder.Entity("BankTransfer.Domain.Entities.Account", b =>
+                {
+                    b.HasOne("BankTransfer.Domain.Entities.User", "User")
+                        .WithMany("Accounts")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("BankTransfer.Domain.Entities.IdempotencyRecord", b =>
+                {
+                    b.HasOne("BankTransfer.Domain.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BankTransfer.Domain.Entities.Transfer", "Transfer")
+                        .WithOne("IdempotencyRecord")
+                        .HasForeignKey("BankTransfer.Domain.Entities.IdempotencyRecord", "TransferId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+
+                    b.Navigation("Transfer");
+                });
+
+            modelBuilder.Entity("BankTransfer.Domain.Entities.Transfer", b =>
+                {
+                    b.HasOne("BankTransfer.Domain.Entities.Account", null)
+                        .WithMany()
+                        .HasForeignKey("FromAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BankTransfer.Domain.Entities.Account", null)
+                        .WithMany()
+                        .HasForeignKey("ToAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("BankTransfer.Domain.Entities.Transfer", b =>
+                {
+                    b.Navigation("IdempotencyRecord");
+                });
+
+            modelBuilder.Entity("BankTransfer.Domain.Entities.User", b =>
+                {
+                    b.Navigation("Accounts");
                 });
 #pragma warning restore 612, 618
         }

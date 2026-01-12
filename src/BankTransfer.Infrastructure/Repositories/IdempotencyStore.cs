@@ -14,20 +14,28 @@ public sealed class IdempotencyStore : IIdempotencyStore
     public async Task<IdempotencyResult?> GetAsync(Guid ownerId, string key, CancellationToken ct)
     {
         var record = await _db.IdempotencyRecords.AsNoTracking()
-            .FirstOrDefaultAsync(x => x.OwnerId == ownerId && x.Key == key, ct);
+            .FirstOrDefaultAsync(x => x.AccountId == ownerId && x.Key == key, ct);
 
-        return record is null ? null : new IdempotencyResult(record.RequestHash, record.ResponseJson);
+        return record is null
+            ? null
+            : new IdempotencyResult(record.RequestHash, record.ResponseJson);
     }
 
-    public Task SaveSuccessAsync(Guid ownerId, string key, string requestHash, string responseJson, CancellationToken ct)
+    public Task SaveSuccessAsync(
+        Guid ownerId,
+        Guid transferId,
+        string key,
+        string requestHash,
+        string responseJson,
+        CancellationToken ct)
     {
-        _db.IdempotencyRecords.Add(new IdempotencyRecord
-        {
-            OwnerId = ownerId,
-            Key = key,
-            RequestHash = requestHash,
-            ResponseJson = responseJson
-        });
+        _db.IdempotencyRecords.Add(new IdempotencyRecord(
+            accountId: ownerId,
+            transferId: transferId,
+            key: key,
+            requestHash: requestHash,
+            responseJson: responseJson
+        ));
 
         return Task.CompletedTask;
     }

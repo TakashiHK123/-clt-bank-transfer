@@ -1,8 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using BankTransfer.Application.Abstractions.Repositories;
 using BankTransfer.Application.Abstractions;
+using BankTransfer.Application.Abstractions.Repositories;
 using BankTransfer.Application.DTOs;
 using BankTransfer.Domain.Entities;
 using BankTransfer.Domain.Exceptions;
@@ -34,12 +34,13 @@ public sealed class TransferFundsService
         string idempotencyKey,
         CancellationToken ct)
     {
-        // Dueño de la idempotencia: el usuario autenticado
-        var ownerId = userId;
-
+        var from = await _accounts.GetByIdForUserAsync(request.FromAccountId, userId, ct)
+                   ?? throw new AccountNotFoundException(request.FromAccountId);
+        
+        var ownerId = from.Id;
+        
         var requestHash = ComputeHash($"{request.FromAccountId}|{request.ToAccountId}|{request.Amount}");
-
-        // Idempotencia
+        
         var cached = await _idempotency.GetAsync(ownerId, idempotencyKey, ct);
         if (cached is not null)
         {
@@ -49,38 +50,45 @@ public sealed class TransferFundsService
             return JsonSerializer.Deserialize<TransferResponseDto>(cached.ResponseJson)!
                    ?? throw new InvalidOperationException("Stored idempotency response is invalid.");
         }
-
-        // Ownership: la cuenta origen debe ser del user
-        var from = await _accounts.GetByIdForUserAsync(request.FromAccountId, userId, ct)
-                   ?? throw new AccountNotFoundException(request.FromAccountId);
-
-        // La cuenta destino puede ser de otro user (si querés permitir transferencias a terceros)
+        
         var to = await _accounts.GetByIdAsync(request.ToAccountId, ct)
                  ?? throw new AccountNotFoundException(request.ToAccountId);
-
-        // Regla: misma moneda
+        
         if (!string.Equals(from.Currency, to.Currency, StringComparison.OrdinalIgnoreCase))
             throw new CurrencyMismatchException(from.Currency, to.Currency);
-
-        // Aplicar negocio
+        
         from.Debit(request.Amount);
         to.Credit(request.Amount);
+        
+        var transfer = new Transfer(
+            request.FromAccountId,
+            request.ToAccountId,
+            request.Amount,
+            from.Currency,
+            idempotencyKey);
 
-        var transfer = new Transfer(request.FromAccountId, request.ToAccountId, request.Amount, from.Currency, idempotencyKey);
         await _transfers.AddAsync(transfer, ct);
 
         _accounts.Update(from);
         _accounts.Update(to);
-
+        
         var response = new TransferResponseDto(
-            transfer.Id, transfer.FromAccountId, transfer.ToAccountId, transfer.Amount, transfer.CreatedAt);
+            transfer.Id,
+            transfer.FromAccountId,
+            transfer.ToAccountId,
+            transfer.Amount,
+            transfer.CreatedAt);
 
         var responseJson = JsonSerializer.Serialize(response);
-
-        // Importante: idealmente SaveSuccessAsync NO debería hacer SaveChanges() internamente.
-        await _idempotency.SaveSuccessAsync(ownerId, idempotencyKey, requestHash, responseJson, ct);
-
-        // Un solo commit (lo ideal)
+        
+        await _idempotency.SaveSuccessAsync(
+            ownerId: ownerId,
+            transferId: transfer.Id, 
+            key: idempotencyKey,
+            requestHash: requestHash,
+            responseJson: responseJson,
+            ct: ct);
+        
         await _uow.SaveChangesAsync(ct);
 
         return response;

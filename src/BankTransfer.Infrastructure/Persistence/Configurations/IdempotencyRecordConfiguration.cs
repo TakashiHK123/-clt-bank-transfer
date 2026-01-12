@@ -8,21 +8,31 @@ public sealed class IdempotencyRecordConfiguration : IEntityTypeConfiguration<Id
 {
     public void Configure(EntityTypeBuilder<IdempotencyRecord> b)
     {
-        b.ToTable("idempotency");
-        
-        b.HasKey(x => new { x.OwnerId, x.Key });
+        b.ToTable("idempotency_records");
+        b.HasKey(x => x.Id);
 
-        b.Property(x => x.Key)
-            .HasMaxLength(100);
-        
-        b.Property(x => x.RequestHash)
-            .IsRequired()
-            .HasMaxLength(128);
+        b.Property(x => x.AccountId).IsRequired();
+        b.Property(x => x.TransferId).IsRequired();
 
-        b.Property(x => x.ResponseJson)
-            .IsRequired();
+        b.Property(x => x.Key).IsRequired().HasMaxLength(200);
+        b.Property(x => x.RequestHash).IsRequired().HasMaxLength(200);
+        b.Property(x => x.ResponseJson).IsRequired();
+        b.Property(x => x.CreatedAtUtc).IsRequired();
 
-        b.Property(x => x.CreatedAt)
-            .IsRequired();
+        b.HasOne(x => x.Account)
+            .WithMany()
+            .HasForeignKey(x => x.AccountId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        b.HasOne(x => x.Transfer)
+            .WithOne(t => t.IdempotencyRecord)
+            .HasForeignKey<IdempotencyRecord>(x => x.TransferId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        b.HasIndex(x => new { x.AccountId, x.Key }).IsUnique();
+
+        b.HasIndex(x => x.TransferId).IsUnique();
+
+        b.HasIndex(x => x.AccountId);
     }
 }

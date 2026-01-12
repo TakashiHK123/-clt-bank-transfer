@@ -34,9 +34,12 @@ public sealed class TransferFundsServiceTests
 
         var transfers = new Mock<ITransferRepository>();
 
+        // ✅ ownerId ahora es AccountId (cuenta origen)
+        var ownerId = from.Id;
+
         var idem = new Mock<IIdempotencyStore>();
         idem
-            .Setup(x => x.GetAsync(userId, "k1", It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetAsync(ownerId, "k1", It.IsAny<CancellationToken>()))
             .ReturnsAsync((IdempotencyResult?)null);
 
         var uow = new Mock<IUnitOfWork>();
@@ -56,8 +59,14 @@ public sealed class TransferFundsServiceTests
 
         transfers.Verify(x => x.AddAsync(It.IsAny<Transfer>(), It.IsAny<CancellationToken>()), Times.Once);
 
+        // ✅ SaveSuccessAsync ahora incluye transferId
         idem.Verify(x => x.SaveSuccessAsync(
-                userId, "k1", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+                ownerId,
+                It.IsAny<Guid>(),
+                "k1",
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
             Times.Once);
 
         uow.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -81,9 +90,11 @@ public sealed class TransferFundsServiceTests
             .Setup(x => x.GetByIdAsync(to.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(to);
 
+        var ownerId = from.Id;
+
         var idem = new Mock<IIdempotencyStore>();
         idem
-            .Setup(x => x.GetAsync(userId, "k1", It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetAsync(ownerId, "k1", It.IsAny<CancellationToken>()))
             .ReturnsAsync((IdempotencyResult?)null);
 
         var useCase = new TransferFundsService(
@@ -121,6 +132,8 @@ public sealed class TransferFundsServiceTests
 
         var transfers = new Mock<ITransferRepository>();
 
+        var ownerId = from.Id;
+
         var idem = new Mock<IIdempotencyStore>();
         var uow = new Mock<IUnitOfWork>();
         uow.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
@@ -134,8 +147,14 @@ public sealed class TransferFundsServiceTests
         string? savedResponseJson = null;
 
         idem
-            .Setup(x => x.SaveSuccessAsync(userId, key, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<Guid, string, string, string, CancellationToken>((_, __, h, json, ___) =>
+            .Setup(x => x.SaveSuccessAsync(
+                ownerId,
+                It.IsAny<Guid>(),
+                key,
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .Callback((Guid _owner, Guid _transferId, string _key, string h, string json, CancellationToken _) =>
             {
                 savedHash = h;
                 savedResponseJson = json;
@@ -144,7 +163,7 @@ public sealed class TransferFundsServiceTests
 
         var getCount = 0;
         idem
-            .Setup(x => x.GetAsync(userId, key, It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetAsync(ownerId, key, It.IsAny<CancellationToken>()))
             .ReturnsAsync(() =>
             {
                 getCount++;
@@ -169,7 +188,12 @@ public sealed class TransferFundsServiceTests
         transfers.Verify(x => x.AddAsync(It.IsAny<Transfer>(), It.IsAny<CancellationToken>()), Times.Once);
 
         idem.Verify(x => x.SaveSuccessAsync(
-                userId, key, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+                ownerId,
+                It.IsAny<Guid>(),
+                key,
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
             Times.Once);
 
         uow.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -189,8 +213,10 @@ public sealed class TransferFundsServiceTests
         accounts.Setup(x => x.GetByIdAsync(to.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(to);
 
+        var ownerId = from.Id;
+
         var idem = new Mock<IIdempotencyStore>();
-        idem.Setup(x => x.GetAsync(userId, "k1", It.IsAny<CancellationToken>()))
+        idem.Setup(x => x.GetAsync(ownerId, "k1", It.IsAny<CancellationToken>()))
             .ReturnsAsync((IdempotencyResult?)null);
 
         var useCase = new TransferFundsService(
@@ -207,5 +233,4 @@ public sealed class TransferFundsServiceTests
 
         await act.Should().ThrowAsync<CurrencyMismatchException>();
     }
-
 }

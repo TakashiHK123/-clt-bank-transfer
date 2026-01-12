@@ -2,7 +2,9 @@ using BankTransfer.Application.Abstractions.Repositories;
 using BankTransfer.Domain.Entities;
 using BankTransfer.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+
 namespace BankTransfer.Infrastructure.Repositories;
+
 public sealed class TransferRepository : ITransferRepository
 {
     private readonly BankTransferDbContext _db;

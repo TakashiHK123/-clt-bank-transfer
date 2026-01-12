@@ -6,7 +6,7 @@ public sealed class Account
 {
     public Guid Id { get; private set; } = Guid.NewGuid();
     public Guid UserId { get; private set; }
-
+    public User User { get; private set; } = default!;
     public string Name { get; private set; } = string.Empty;
     public decimal Balance { get; private set; }
     public string Currency { get; private set; } = "PYG";
