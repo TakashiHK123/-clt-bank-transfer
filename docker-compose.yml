@@ -1,0 +1,14 @@
+services:
+  banktransfer-api:
+    build: .
+    ports:
+      - "5267:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      # OJO: esto setea el connection string por variable de entorno
+      ConnectionStrings__Default: "Data Source=/data/banktransfer.db"
+    volumes:
+      - banktransfer_data:/data
+
+volumes:
+  banktransfer_data:
