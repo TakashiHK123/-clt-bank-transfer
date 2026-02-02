@@ -81,7 +81,7 @@ public sealed class AccountRepositoryTest
     public async Task GetByIdAsync_CuandoNoExisteCuenta_DebeRetornarNull()
     {
         var conn = await CrearDbAsync();
-        await using var _ = conn;
+        using var _ = conn;
 
         var repo = new AccountRepository(conn);
 
@@ -94,7 +94,7 @@ public sealed class AccountRepositoryTest
     public async Task GetByUserIdAsync_CuandoHayVariasCuentas_DebeRetornarSoloLasDelUsuario()
     {
         var conn = await CrearDbAsync();
-        await using var _ = conn;
+        using var _ = conn;
 
         var user1Id = Guid.NewGuid();
         var user2Id = Guid.NewGuid();
@@ -123,7 +123,7 @@ public sealed class AccountRepositoryTest
     public async Task GetByIdForUserAsync_CuandoCuentaPerteneceAlUsuario_DebeRetornarCuenta()
     {
         var conn = await CrearDbAsync();
-        await using var _ = conn;
+        using var _ = conn;
 
         var userId = Guid.NewGuid();
         var user = new User("user1", "hash", userId);
@@ -146,7 +146,7 @@ public sealed class AccountRepositoryTest
     public async Task GetByIdForUserAsync_CuandoCuentaNoPerteneceAlUsuario_DebeRetornarNull()
     {
         var conn = await CrearDbAsync();
-        await using var _ = conn;
+        using var _ = conn;
 
         var user1Id = Guid.NewGuid();
         var user2Id = Guid.NewGuid();
@@ -171,7 +171,7 @@ public sealed class AccountRepositoryTest
     public async Task ListByUserAsync_CuandoSeLlama_DebeRetornarCuentasDelUsuario()
     {
         var conn = await CrearDbAsync();
-        await using var _ = conn;
+        using var _ = conn;
 
         var userId = Guid.NewGuid();
         var user = new User("user1", "hash", userId);
@@ -193,7 +193,7 @@ public sealed class AccountRepositoryTest
     public async Task UpdateAsync_CuandoSeActualizaCuenta_DebePersistirCambios()
     {
         var conn = await CrearDbAsync();
-        await using var _ = conn;
+        using var _ = conn;
 
         var userId = Guid.NewGuid();
         var user = new User("user1", "hash", userId);

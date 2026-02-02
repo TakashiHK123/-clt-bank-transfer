@@ -1,36 +1,43 @@
+using System.Data;
 using BankTransfer.Domain.Entities;
-using BankTransfer.Infrastructure.Persistence;
 using BankTransfer.Infrastructure.Repositories;
 using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
+using Dapper;
 
 namespace BankTransfer.UnitTests.RepositoriesTest;
 
 public sealed class UserRepositoryTest
 {
-    private static async Task<(SqliteConnection Conn, BankTransferDbContext Db)> CrearDbAsync()
+    private static async Task<IDbConnection> CrearDbAsync()
     {
         var conn = new SqliteConnection("DataSource=:memory:");
         await conn.OpenAsync();
 
-        var options = new DbContextOptionsBuilder<BankTransferDbContext>()
-            .UseSqlite(conn)
-            .Options;
+        await conn.ExecuteAsync(@"
+            CREATE TABLE Users (
+                Id TEXT PRIMARY KEY,
+                Username TEXT NOT NULL,
+                PasswordHash TEXT NOT NULL
+            )");
 
-        var db = new BankTransferDbContext(options);
-        await db.Database.EnsureCreatedAsync();
+        return conn;
+    }
 
-        return (conn, db);
+    private static async Task SeedUserAsync(IDbConnection conn, User user)
+    {
+        await conn.ExecuteAsync(@"
+            INSERT INTO Users (Id, Username, PasswordHash)
+            VALUES (@Id, @Username, @PasswordHash)",
+            new { user.Id, user.Username, user.PasswordHash });
     }
 
     [Fact]
     public async Task GetByUsernameAsync_CuandoNoExisteUsuario_DebeRetornarNull()
     {
-        var (conn, db) = await CrearDbAsync();
-        await using var _ = conn;
-        await using var __ = db;
+        var conn = await CrearDbAsync();
+        using var _ = conn;
 
-        var repo = new UserRepository(db);
+        var repo = new UserRepository(conn);
 
         var result = await repo.GetByUsernameAsync("no-existe", CancellationToken.None);
 
@@ -40,17 +47,15 @@ public sealed class UserRepositoryTest
     [Fact]
     public async Task GetByUsernameAsync_CuandoExisteUsuario_DebeRetornarUsuario()
     {
-        var (conn, db) = await CrearDbAsync();
-        await using var _ = conn;
-        await using var __ = db;
+        var conn = await CrearDbAsync();
+        using var _ = conn;
 
         var id = Guid.NewGuid();
+        var user = new User(username: "takashi", passwordHash: "hash", id: id);
+        
+        await SeedUserAsync(conn, user);
 
-        db.Users.Add(new User(username: "takashi", passwordHash: "hash", id: id));
-        await db.SaveChangesAsync();
-        db.ChangeTracker.Clear();
-
-        var repo = new UserRepository(db);
+        var repo = new UserRepository(conn);
 
         var result = await repo.GetByUsernameAsync("takashi", CancellationToken.None);
 
@@ -63,17 +68,15 @@ public sealed class UserRepositoryTest
     [Fact]
     public async Task GetByUsernameAsync_CuandoSePasaConEspaciosYMayusculas_DebeEncontrarPorTrimYLowercase()
     {
-        var (conn, db) = await CrearDbAsync();
-        await using var _ = conn;
-        await using var __ = db;
+        var conn = await CrearDbAsync();
+        using var _ = conn;
 
         var id = Guid.NewGuid();
+        var user = new User(username: "takashi", passwordHash: "hash", id: id);
         
-        db.Users.Add(new User(username: "takashi", passwordHash: "hash", id: id));
-        await db.SaveChangesAsync();
-        db.ChangeTracker.Clear();
+        await SeedUserAsync(conn, user);
 
-        var repo = new UserRepository(db);
+        var repo = new UserRepository(conn);
 
         var result = await repo.GetByUsernameAsync("  TaKaShI  ", CancellationToken.None);
 
@@ -85,17 +88,15 @@ public sealed class UserRepositoryTest
     [Fact]
     public async Task GetByUsernameAsync_CuandoExistePeroEnLaBaseEstaConMayusculas_NoDebeEncontrar()
     {
-        var (conn, db) = await CrearDbAsync();
-        await using var _ = conn;
-        await using var __ = db;
+        var conn = await CrearDbAsync();
+        using var _ = conn;
 
         var id = Guid.NewGuid();
+        var user = new User(username: "Takashi", passwordHash: "hash", id: id);
         
-        db.Users.Add(new User(username: "Takashi", passwordHash: "hash", id: id));
-        await db.SaveChangesAsync();
-        db.ChangeTracker.Clear();
+        await SeedUserAsync(conn, user);
 
-        var repo = new UserRepository(db);
+        var repo = new UserRepository(conn);
 
         var result = await repo.GetByUsernameAsync("takashi", CancellationToken.None);
 

@@ -1,60 +1,55 @@
-using BankTransfer.Domain.Entities;
-using BankTransfer.Infrastructure.Persistence;
+using System.Data;
 using BankTransfer.Infrastructure.Repositories;
 using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
 
 namespace BankTransfer.UnitTests.RepositoriesTest;
 
 public sealed class UnitOfWorkTest
 {
-    private static async Task<(SqliteConnection Conn, BankTransferDbContext Db)> CrearDbAsync()
+    private static async Task<IDbConnection> CrearDbAsync()
     {
         var conn = new SqliteConnection("DataSource=:memory:");
         await conn.OpenAsync();
-
-        var options = new DbContextOptionsBuilder<BankTransferDbContext>()
-            .UseSqlite(conn)
-            .Options;
-
-        var db = new BankTransferDbContext(options);
-        await db.Database.EnsureCreatedAsync();
-
-        return (conn, db);
+        return conn;
     }
 
     [Fact]
-    public async Task SaveChangesAsync_CuandoHayCambiosPendientes_DebePersistirYRetornarFilasAfectadas()
+    public async Task SaveChangesAsync_CuandoNoHayTransaccion_DebeRetornarCero()
     {
-        var (conn, db) = await CrearDbAsync();
-        await using var _ = conn;
-        await using var __ = db;
-        
-        var userId = Guid.NewGuid();
-        db.Users.Add(new User("user1", "hash", userId));
+        var conn = await CrearDbAsync();
+        using var _ = conn;
 
-        var uow = new UnitOfWork(db);
-        
-        var affected = await uow.SaveChangesAsync(CancellationToken.None);
-        
-        Assert.True(affected > 0);
+        var uow = new UnitOfWork(conn);
 
-        var persisted = await db.Users.FirstOrDefaultAsync(x => x.Id == userId);
-        Assert.NotNull(persisted);
-        Assert.Equal("user1", persisted!.Username);
+        var result = await uow.SaveChangesAsync(CancellationToken.None);
+
+        Assert.Equal(0, result);
     }
 
     [Fact]
-    public async Task SaveChangesAsync_CuandoNoHayCambios_DebeRetornarCero()
+    public async Task SaveChangesAsync_CuandoHayTransaccion_DebeCommitYRetornarUno()
     {
-        var (conn, db) = await CrearDbAsync();
-        await using var _ = conn;
-        await using var __ = db;
+        var conn = await CrearDbAsync();
+        using var _ = conn;
 
-        var uow = new UnitOfWork(db);
+        var uow = new UnitOfWork(conn);
+        
+        uow.BeginTransaction();
+        
+        var result = await uow.SaveChangesAsync(CancellationToken.None);
 
-        var affected = await uow.SaveChangesAsync(CancellationToken.None);
+        Assert.Equal(1, result);
+    }
 
-        Assert.Equal(0, affected);
+    [Fact]
+    public void Dispose_CuandoSeLlama_DebeDisponerRecursos()
+    {
+        var conn = new SqliteConnection("DataSource=:memory:");
+        var uow = new UnitOfWork(conn);
+
+        // Should not throw
+        uow.Dispose();
+        
+        Assert.True(true); // Test passes if no exception is thrown
     }
 }

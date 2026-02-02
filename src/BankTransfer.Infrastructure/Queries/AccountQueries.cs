@@ -3,22 +3,22 @@ namespace BankTransfer.Infrastructure.Queries;
 public static class AccountQueries
 {
     public const string GetById = @"
-        SELECT Id, AccountNumber, Balance, UserId, CreatedAt 
+        SELECT Id, Name, Balance, UserId, Currency, Version 
         FROM Accounts 
         WHERE Id = @Id";
 
     public const string GetByUserId = @"
-        SELECT Id, AccountNumber, Balance, UserId, CreatedAt 
+        SELECT Id, Name, Balance, UserId, Currency, Version 
         FROM Accounts 
         WHERE UserId = @UserId";
 
     public const string GetByIdForUser = @"
-        SELECT Id, AccountNumber, Balance, UserId, CreatedAt 
+        SELECT Id, Name, Balance, UserId, Currency, Version 
         FROM Accounts 
         WHERE Id = @AccountId AND UserId = @UserId";
 
     public const string ListByUser = @"
-        SELECT Id, AccountNumber, Balance, UserId, CreatedAt 
+        SELECT Id, Name, Balance, UserId, Currency, Version 
         FROM Accounts 
         WHERE UserId = @UserId";
 
