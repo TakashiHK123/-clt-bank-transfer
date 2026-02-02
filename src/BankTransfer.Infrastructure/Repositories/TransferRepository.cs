@@ -1,28 +1,28 @@
+using System.Data;
 using BankTransfer.Application.Abstractions.Repositories;
 using BankTransfer.Domain.Entities;
-using BankTransfer.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
+using BankTransfer.Infrastructure.Queries;
+using Dapper;
 
 namespace BankTransfer.Infrastructure.Repositories;
 
 public sealed class TransferRepository : ITransferRepository
 {
-    private readonly BankTransferDbContext _db;
+    private readonly IDbConnection _connection;
 
-    public TransferRepository(BankTransferDbContext db) => _db = db;
+    public TransferRepository(IDbConnection connection) => _connection = connection;
 
     public Task AddAsync(Transfer transfer, CancellationToken ct)
-        => _db.Transfers.AddAsync(transfer, ct).AsTask();
+        => _connection.ExecuteAsync(TransferQueries.Add, new 
+        { 
+            transfer.Id, 
+            transfer.FromAccountId, 
+            transfer.ToAccountId, 
+            transfer.Amount, 
+            transfer.CreatedAt 
+        });
 
-    public async Task<List<Transfer>> GetHistoryByAccountIdAsync(Guid accountId, CancellationToken ct)
-    {
-        var list = await _db.Transfers
-            .AsNoTracking()
-            .Where(t => t.FromAccountId == accountId || t.ToAccountId == accountId)
-            .ToListAsync(ct);
-
-        return list
-            .OrderByDescending(t => t.CreatedAt)
-            .ToList();
-    }
+    public Task<List<Transfer>> GetHistoryByAccountIdAsync(Guid accountId, CancellationToken ct)
+        => _connection.QueryAsync<Transfer>(TransferQueries.GetHistoryByAccountId, new { AccountId = accountId })
+            .ContinueWith(t => t.Result.ToList(), ct);
 }

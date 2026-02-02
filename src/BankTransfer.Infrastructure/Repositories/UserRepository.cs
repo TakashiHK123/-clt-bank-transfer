@@ -1,19 +1,17 @@
+using System.Data;
 using BankTransfer.Application.Abstractions.Repositories;
 using BankTransfer.Domain.Entities;
-using BankTransfer.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
+using BankTransfer.Infrastructure.Queries;
+using Dapper;
 
 namespace BankTransfer.Infrastructure.Repositories;
 
 public sealed class UserRepository : IUserRepository
 {
-    private readonly BankTransferDbContext _db;
+    private readonly IDbConnection _connection;
 
-    public UserRepository(BankTransferDbContext db) => _db = db;
+    public UserRepository(IDbConnection connection) => _connection = connection;
 
     public Task<User?> GetByUsernameAsync(string username, CancellationToken ct)
-    {
-        var u = username.Trim().ToLowerInvariant();
-        return _db.Users.FirstOrDefaultAsync(x => x.Username == u, ct);
-    }
+        => _connection.QuerySingleOrDefaultAsync<User>(UserQueries.GetByUsername, new { Username = username });
 }

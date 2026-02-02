@@ -59,8 +59,8 @@ public sealed class TransferFundsServiceTests
         transfers.Verify(x => x.AddAsync(It.IsAny<Transfer>(), It.IsAny<CancellationToken>()), Times.Once);
 
         // Se actualizan cuentas
-        accounts.Verify(x => x.Update(from), Times.Once);
-        accounts.Verify(x => x.Update(to), Times.Once);
+        accounts.Verify(x => x.UpdateAsync(from, It.IsAny<CancellationToken>()), Times.Once);
+        accounts.Verify(x => x.UpdateAsync(to, It.IsAny<CancellationToken>()), Times.Once);
 
         // Se guarda idempotencia y commit
         idem.Verify(x => x.SaveSuccessAsync(

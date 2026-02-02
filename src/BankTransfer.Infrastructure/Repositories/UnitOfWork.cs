@@ -1,13 +1,35 @@
+using System.Data;
 using BankTransfer.Application.Abstractions;
-using BankTransfer.Infrastructure.Persistence;
 
 namespace BankTransfer.Infrastructure.Repositories;
 
-public sealed class UnitOfWork : IUnitOfWork
+public sealed class UnitOfWork : IUnitOfWork, IDisposable
 {
-    private readonly BankTransferDbContext _db;
+    private readonly IDbConnection _connection;
+    private IDbTransaction? _transaction;
 
-    public UnitOfWork(BankTransferDbContext db) => _db = db;
+    public UnitOfWork(IDbConnection connection) => _connection = connection;
 
-    public Task<int> SaveChangesAsync(CancellationToken ct) => _db.SaveChangesAsync(ct);
+    public async Task<int> SaveChangesAsync(CancellationToken ct = default)
+    {
+        if (_transaction is null)
+            return 0;
+
+        await Task.Run(() => _transaction.Commit(), ct);
+        return 1;
+    }
+
+    public void BeginTransaction()
+    {
+        if (_connection.State != ConnectionState.Open)
+            _connection.Open();
+        
+        _transaction = _connection.BeginTransaction();
+    }
+
+    public void Dispose()
+    {
+        _transaction?.Dispose();
+        _connection?.Dispose();
+    }
 }

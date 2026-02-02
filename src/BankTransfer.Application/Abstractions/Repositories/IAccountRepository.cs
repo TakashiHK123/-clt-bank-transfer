@@ -8,5 +8,5 @@ public interface IAccountRepository
     Task<List<Account>> GetByUserIdAsync(Guid userId, CancellationToken ct);
     Task<Account?> GetByIdForUserAsync(Guid accountId, Guid userId, CancellationToken ct);
     Task<List<Account>> ListByUserAsync(Guid userId, CancellationToken ct);
-    void Update(Account account);
+    Task UpdateAsync(Account account, CancellationToken ct = default);
 }

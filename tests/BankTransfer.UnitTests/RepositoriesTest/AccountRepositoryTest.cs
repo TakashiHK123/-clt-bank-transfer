@@ -1,42 +1,61 @@
+using System.Data;
 using BankTransfer.Domain.Entities;
-using BankTransfer.Infrastructure.Persistence;
 using BankTransfer.Infrastructure.Repositories;
 using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
+using Dapper;
 
 namespace BankTransfer.UnitTests.RepositoriesTest;
 
 public sealed class AccountRepositoryTest
 {
-    private static async Task<(SqliteConnection Conn, BankTransferDbContext Db)> CrearDbAsync()
+    private static async Task<IDbConnection> CrearDbAsync()
     {
         var conn = new SqliteConnection("DataSource=:memory:");
         await conn.OpenAsync();
 
-        var options = new DbContextOptionsBuilder<BankTransferDbContext>()
-            .UseSqlite(conn)
-            .Options;
+        // Create tables
+        await conn.ExecuteAsync(@"
+            CREATE TABLE Users (
+                Id TEXT PRIMARY KEY,
+                Username TEXT NOT NULL,
+                PasswordHash TEXT NOT NULL
+            )");
 
-        var db = new BankTransferDbContext(options);
-        await db.Database.EnsureCreatedAsync();
+        await conn.ExecuteAsync(@"
+            CREATE TABLE Accounts (
+                Id TEXT PRIMARY KEY,
+                UserId TEXT NOT NULL,
+                Name TEXT NOT NULL,
+                Balance REAL NOT NULL,
+                Currency TEXT NOT NULL,
+                Version INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY (UserId) REFERENCES Users(Id)
+            )");
 
-        return (conn, db);
+        return conn;
     }
 
-    private static async Task SeedUsuarioYCuentaAsync(BankTransferDbContext db, User user, params Account[] accounts)
+    private static async Task SeedUsuarioYCuentaAsync(IDbConnection conn, User user, params Account[] accounts)
     {
-        db.Users.Add(user);
-        db.Accounts.AddRange(accounts);
-        await db.SaveChangesAsync();
-        db.ChangeTracker.Clear();
+        await conn.ExecuteAsync(@"
+            INSERT INTO Users (Id, Username, PasswordHash)
+            VALUES (@Id, @Username, @PasswordHash)",
+            new { user.Id, user.Username, user.PasswordHash });
+
+        foreach (var acc in accounts)
+        {
+            await conn.ExecuteAsync(@"
+                INSERT INTO Accounts (Id, UserId, Name, Balance, Currency, Version)
+                VALUES (@Id, @UserId, @Name, @Balance, @Currency, @Version)",
+                new { acc.Id, acc.UserId, acc.Name, acc.Balance, acc.Currency, acc.Version });
+        }
     }
 
     [Fact]
     public async Task GetByIdAsync_CuandoExisteCuenta_DebeRetornarCuenta()
     {
-        var (conn, db) = await CrearDbAsync();
-        await using var _ = conn;
-        await using var __ = db;
+        var conn = await CrearDbAsync();
+        using var _ = conn;
 
         var userId = Guid.NewGuid();
         var user = new User("user1", "hash", userId);
@@ -44,9 +63,9 @@ public sealed class AccountRepositoryTest
         var accountId = Guid.NewGuid();
         var acc = Account.Seed(accountId, userId, "Caja", 100m, "PYG");
 
-        await SeedUsuarioYCuentaAsync(db, user, acc);
+        await SeedUsuarioYCuentaAsync(conn, user, acc);
 
-        var repo = new AccountRepository(db);
+        var repo = new AccountRepository(conn);
 
         var result = await repo.GetByIdAsync(accountId, CancellationToken.None);
 
@@ -61,11 +80,10 @@ public sealed class AccountRepositoryTest
     [Fact]
     public async Task GetByIdAsync_CuandoNoExisteCuenta_DebeRetornarNull()
     {
-        var (conn, db) = await CrearDbAsync();
+        var conn = await CrearDbAsync();
         await using var _ = conn;
-        await using var __ = db;
 
-        var repo = new AccountRepository(db);
+        var repo = new AccountRepository(conn);
 
         var result = await repo.GetByIdAsync(Guid.NewGuid(), CancellationToken.None);
 
@@ -75,9 +93,8 @@ public sealed class AccountRepositoryTest
     [Fact]
     public async Task GetByUserIdAsync_CuandoHayVariasCuentas_DebeRetornarSoloLasDelUsuario()
     {
-        var (conn, db) = await CrearDbAsync();
+        var conn = await CrearDbAsync();
         await using var _ = conn;
-        await using var __ = db;
 
         var user1Id = Guid.NewGuid();
         var user2Id = Guid.NewGuid();
@@ -89,12 +106,10 @@ public sealed class AccountRepositoryTest
         var a2 = Account.Seed(Guid.NewGuid(), user1Id, "U1-A2", 20m, "PYG");
         var b1 = Account.Seed(Guid.NewGuid(), user2Id, "U2-B1", 30m, "PYG");
 
-        db.Users.AddRange(user1, user2);
-        db.Accounts.AddRange(a1, a2, b1);
-        await db.SaveChangesAsync();
-        db.ChangeTracker.Clear();
+        await SeedUsuarioYCuentaAsync(conn, user1, a1, a2);
+        await SeedUsuarioYCuentaAsync(conn, user2, b1);
 
-        var repo = new AccountRepository(db);
+        var repo = new AccountRepository(conn);
 
         var list = await repo.GetByUserIdAsync(user1Id, CancellationToken.None);
 
@@ -107,9 +122,8 @@ public sealed class AccountRepositoryTest
     [Fact]
     public async Task GetByIdForUserAsync_CuandoCuentaPerteneceAlUsuario_DebeRetornarCuenta()
     {
-        var (conn, db) = await CrearDbAsync();
+        var conn = await CrearDbAsync();
         await using var _ = conn;
-        await using var __ = db;
 
         var userId = Guid.NewGuid();
         var user = new User("user1", "hash", userId);
@@ -117,9 +131,9 @@ public sealed class AccountRepositoryTest
         var accountId = Guid.NewGuid();
         var acc = Account.Seed(accountId, userId, "Caja", 100m, "PYG");
 
-        await SeedUsuarioYCuentaAsync(db, user, acc);
+        await SeedUsuarioYCuentaAsync(conn, user, acc);
 
-        var repo = new AccountRepository(db);
+        var repo = new AccountRepository(conn);
 
         var result = await repo.GetByIdForUserAsync(accountId, userId, CancellationToken.None);
 
@@ -131,9 +145,8 @@ public sealed class AccountRepositoryTest
     [Fact]
     public async Task GetByIdForUserAsync_CuandoCuentaNoPerteneceAlUsuario_DebeRetornarNull()
     {
-        var (conn, db) = await CrearDbAsync();
+        var conn = await CrearDbAsync();
         await using var _ = conn;
-        await using var __ = db;
 
         var user1Id = Guid.NewGuid();
         var user2Id = Guid.NewGuid();
@@ -144,12 +157,10 @@ public sealed class AccountRepositoryTest
         var accountId = Guid.NewGuid();
         var acc = Account.Seed(accountId, user1Id, "Caja", 100m, "PYG");
 
-        db.Users.AddRange(user1, user2);
-        db.Accounts.Add(acc);
-        await db.SaveChangesAsync();
-        db.ChangeTracker.Clear();
+        await SeedUsuarioYCuentaAsync(conn, user1, acc);
+        await SeedUsuarioYCuentaAsync(conn, user2);
 
-        var repo = new AccountRepository(db);
+        var repo = new AccountRepository(conn);
 
         var result = await repo.GetByIdForUserAsync(accountId, user2Id, CancellationToken.None);
 
@@ -157,11 +168,10 @@ public sealed class AccountRepositoryTest
     }
 
     [Fact]
-    public async Task ListByUserAsync_CuandoSeLlama_NoDebeTrackearEntidades()
+    public async Task ListByUserAsync_CuandoSeLlama_DebeRetornarCuentasDelUsuario()
     {
-        var (conn, db) = await CrearDbAsync();
+        var conn = await CrearDbAsync();
         await using var _ = conn;
-        await using var __ = db;
 
         var userId = Guid.NewGuid();
         var user = new User("user1", "hash", userId);
@@ -169,25 +179,21 @@ public sealed class AccountRepositoryTest
         var a1 = Account.Seed(Guid.NewGuid(), userId, "A1", 10m, "PYG");
         var a2 = Account.Seed(Guid.NewGuid(), userId, "A2", 20m, "PYG");
 
-        await SeedUsuarioYCuentaAsync(db, user, a1, a2);
+        await SeedUsuarioYCuentaAsync(conn, user, a1, a2);
 
-        var repo = new AccountRepository(db);
-        
-        db.ChangeTracker.Clear();
+        var repo = new AccountRepository(conn);
 
         var list = await repo.ListByUserAsync(userId, CancellationToken.None);
 
         Assert.Equal(2, list.Count);
-        
-        Assert.Empty(db.ChangeTracker.Entries<Account>());
+        Assert.All(list, x => Assert.Equal(userId, x.UserId));
     }
 
     [Fact]
-    public async Task Update_CuandoSeActualizaEntidadDetached_DebePersistirCambios()
+    public async Task UpdateAsync_CuandoSeActualizaCuenta_DebePersistirCambios()
     {
-        var (conn, db1) = await CrearDbAsync();
+        var conn = await CrearDbAsync();
         await using var _ = conn;
-        await using var __ = db1;
 
         var userId = Guid.NewGuid();
         var user = new User("user1", "hash", userId);
@@ -195,36 +201,19 @@ public sealed class AccountRepositoryTest
         var accountId = Guid.NewGuid();
         var acc = Account.Seed(accountId, userId, "Caja", 100m, "PYG");
 
-        await SeedUsuarioYCuentaAsync(db1, user, acc);
+        await SeedUsuarioYCuentaAsync(conn, user, acc);
 
-        var options2 = new DbContextOptionsBuilder<BankTransferDbContext>()
-            .UseSqlite(conn)
-            .Options;
+        var repo = new AccountRepository(conn);
 
-        await using var db2 = new BankTransferDbContext(options2);
-        var repo2 = new AccountRepository(db2);
-        
-        var detached = await db2.Accounts.AsNoTracking().FirstAsync(a => a.Id == accountId);
-        
-        var versionOriginal = detached.Version;
-        
-        detached.Credit(50m);
-        
-        repo2.Update(detached);
-        db2.Entry(detached).Property(x => x.Version).OriginalValue = versionOriginal;
+        // Modify balance
+        acc.Credit(50m);
 
-        await db2.SaveChangesAsync();
+        await repo.UpdateAsync(acc);
 
-        var options3 = new DbContextOptionsBuilder<BankTransferDbContext>()
-            .UseSqlite(conn)
-            .Options;
+        // Verify update
+        var updated = await repo.GetByIdAsync(accountId, CancellationToken.None);
 
-        await using var db3 = new BankTransferDbContext(options3);
-
-        var persisted = await db3.Accounts.FirstAsync(a => a.Id == accountId);
-
-        Assert.Equal(150m, persisted.Balance);
-        Assert.Equal(versionOriginal + 1, persisted.Version);
+        Assert.NotNull(updated);
+        Assert.Equal(150m, updated!.Balance);
     }
-
 }

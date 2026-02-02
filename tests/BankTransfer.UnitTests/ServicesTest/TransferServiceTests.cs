@@ -28,8 +28,8 @@ public sealed class TransferServiceTests
             .Setup(x => x.GetByIdAsync(to.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(to);
 
-        accounts.Setup(x => x.Update(from));
-        accounts.Setup(x => x.Update(to));
+        accounts.Setup(x => x.UpdateAsync(from, It.IsAny<CancellationToken>()));
+        accounts.Setup(x => x.UpdateAsync(to, It.IsAny<CancellationToken>()));
 
         var transfers = new Mock<ITransferRepository>();
         transfers

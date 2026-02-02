@@ -1,20 +1,22 @@
+using System.Data;
 using BankTransfer.Application.Abstractions;
 using BankTransfer.Domain.Entities;
-using BankTransfer.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
+using BankTransfer.Infrastructure.Queries;
+using Dapper;
 
 namespace BankTransfer.Infrastructure.Repositories;
 
 public sealed class IdempotencyStore : IIdempotencyStore
 {
-    private readonly BankTransferDbContext _db;
+    private readonly IDbConnection _connection;
 
-    public IdempotencyStore(BankTransferDbContext db) => _db = db;
+    public IdempotencyStore(IDbConnection connection) => _connection = connection;
 
     public async Task<IdempotencyResult?> GetAsync(Guid ownerId, string key, CancellationToken ct)
     {
-        var record = await _db.IdempotencyRecords.AsNoTracking()
-            .FirstOrDefaultAsync(x => x.AccountId == ownerId && x.Key == key, ct);
+        var record = await _connection.QuerySingleOrDefaultAsync<IdempotencyRecord>(
+            IdempotencyQueries.Get, 
+            new { OwnerId = ownerId, Key = key });
 
         return record is null
             ? null
@@ -29,14 +31,15 @@ public sealed class IdempotencyStore : IIdempotencyStore
         string responseJson,
         CancellationToken ct)
     {
-        _db.IdempotencyRecords.Add(new IdempotencyRecord(
-            accountId: ownerId,
-            transferId: transferId,
-            key: key,
-            requestHash: requestHash,
-            responseJson: responseJson
-        ));
-
-        return Task.CompletedTask;
+        return _connection.ExecuteAsync(IdempotencyQueries.SaveSuccess, new
+        {
+            Id = Guid.NewGuid(),
+            AccountId = ownerId,
+            TransferId = transferId,
+            Key = key,
+            RequestHash = requestHash,
+            ResponseJson = responseJson,
+            CreatedAt = DateTime.UtcNow
+        });
     }
 }

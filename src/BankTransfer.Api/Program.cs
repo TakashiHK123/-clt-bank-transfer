@@ -1,3 +1,4 @@
+using System.Data;
 using System.Text;
 using BankTransfer.Api.Auth;
 using BankTransfer.Api.Bootstrap;
@@ -83,8 +84,15 @@ builder.Services
 builder.Services.AddAuthorization();
 
 // =========================
-// EF Core SQLite
+// Database Connection
 // =========================
+builder.Services.AddScoped<IDbConnection>(provider =>
+{
+    var connectionString = builder.Configuration.GetConnectionString("Default")!;
+    return new Microsoft.Data.Sqlite.SqliteConnection(connectionString);
+});
+
+// Keep EF Core only for migrations
 builder.Services.AddDbContext<BankTransferDbContext>(opt =>
 {
     var cs = builder.Configuration.GetConnectionString("Default")!;

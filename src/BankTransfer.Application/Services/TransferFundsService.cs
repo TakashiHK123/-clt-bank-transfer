@@ -69,8 +69,8 @@ public sealed class TransferFundsService
 
         await _transfers.AddAsync(transfer, ct);
 
-        _accounts.Update(from);
-        _accounts.Update(to);
+        await _accounts.UpdateAsync(from, ct);
+        await _accounts.UpdateAsync(to, ct);
         
         var response = new TransferResponseDto(
             transfer.Id,
